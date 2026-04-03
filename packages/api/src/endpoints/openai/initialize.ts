@@ -7,6 +7,7 @@ import type {
 } from '~/types';
 import { getAzureCredentials, resolveHeaders, isUserProvided, checkUserKeyExpiry } from '~/utils';
 import { validateEndpointURL } from '~/auth';
+import { hasNativeOpenAIFileAttachments, getConfiguredOpenAIBaseURL } from '~/files/native';
 import { getOpenAIConfig } from './config';
 
 /**
@@ -24,8 +25,8 @@ export async function initializeOpenAI({
   db,
 }: BaseInitializeParams): Promise<InitializeResultBase> {
   const appConfig = req.config;
-  const { PROXY, OPENAI_API_KEY, AZURE_API_KEY, OPENAI_REVERSE_PROXY, AZURE_OPENAI_BASEURL } =
-    process.env;
+  const { PROXY, OPENAI_API_KEY, AZURE_API_KEY, AZURE_OPENAI_BASEURL } = process.env;
+  const openAIBaseURL = getConfiguredOpenAIBaseURL();
 
   const { key: expiresAt } = req.body;
   const modelName = model_parameters?.model as string | undefined;
@@ -36,7 +37,7 @@ export async function initializeOpenAI({
   };
 
   const baseURLOptions = {
-    [EModelEndpoint.openAI]: OPENAI_REVERSE_PROXY,
+    [EModelEndpoint.openAI]: openAIBaseURL,
     [EModelEndpoint.azureOpenAI]: AZURE_OPENAI_BASEURL,
   };
 
@@ -129,6 +130,9 @@ export async function initializeOpenAI({
 
   const modelOptions = {
     ...(model_parameters ?? {}),
+    ...(hasNativeOpenAIFileAttachments((req.body as { files?: unknown } | undefined)?.files)
+      ? { useResponsesApi: true }
+      : {}),
     model: modelName,
     user: req.user?.id,
   };

@@ -3,6 +3,7 @@ import type {
   TConversationTag,
   EModelEndpoint,
   TConversation,
+  TClarificationStatus,
   TSharedLink,
   TAttachment,
   TMessage,
@@ -271,6 +272,76 @@ export type TUpdateConversationRequest = {
 };
 
 export type TUpdateConversationResponse = TConversation;
+
+export type TProjectCreateRequest = {
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+};
+
+export type TProjectUpdateRequest = TProjectCreateRequest & {
+  projectId: string;
+};
+
+export type TProjectSourceCreateRequest = {
+  projectId: string;
+  sourceType: 'file' | 'url' | 'note';
+  title: string;
+  description?: string | null;
+  fileId?: string | null;
+  url?: string | null;
+  noteBody?: string | null;
+};
+
+export type TProjectSourceUpdateRequest = Omit<TProjectSourceCreateRequest, 'projectId'> & {
+  projectId: string;
+  sourceId: string;
+  sourceType?: 'file' | 'url' | 'note';
+};
+
+export type TClarificationListParams = {
+  conversationId: string;
+  parentMessageId?: string;
+  includeArchived?: boolean;
+};
+
+export type TClarificationCreateRequest = {
+  projectId?: string | null;
+  conversationId: string;
+  parentMessageId: string;
+  anchorStart: number;
+  anchorEnd: number;
+  anchorText: string;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
+  clarificationQuestion: string;
+};
+
+export type TClarificationUpdateRequest = {
+  clarificationId: string;
+  anchorStart?: number;
+  anchorEnd?: number;
+  anchorText?: string;
+  anchorContextBefore?: string;
+  anchorContextAfter?: string;
+  clarificationQuestion?: string;
+  clarificationAnswer?: string;
+  status?: TClarificationStatus;
+};
+
+export type TClarificationIntegrateRequest = {
+  clarificationId: string;
+  mergedText: string;
+  excerpt?: string;
+  excerptStart?: number;
+  excerptEnd?: number;
+};
+
+export type TClarificationReanchorRequest = {
+  clarificationId: string;
+  parentText?: string;
+};
 
 export type TDeleteConversationRequest = {
   conversationId?: string;

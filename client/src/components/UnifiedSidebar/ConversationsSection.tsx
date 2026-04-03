@@ -16,6 +16,7 @@ import {
 } from '~/hooks';
 import { useConversationsInfiniteQuery, useTitleGeneration } from '~/data-provider';
 import { Conversations } from '~/components/Conversations';
+import { ProjectSidebar } from '~/components/Projects';
 import SearchBar from '~/components/Nav/SearchBar';
 import { clearMessagesCache } from '~/utils';
 import store from '~/store';
@@ -35,6 +36,7 @@ const ConversationsSection = memo(() => {
   const [isChatsExpanded, setIsChatsExpanded] = useLocalStorage('chatsExpanded', true);
   const [showLoading, setShowLoading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const activeProjectId = useRecoilValue(store.activeProjectId);
 
   const hasAccessToBookmarks = useHasAccess({
     permissionType: PermissionTypes.BOOKMARKS,
@@ -48,6 +50,7 @@ const ConversationsSection = memo(() => {
       {
         tags: tags.length === 0 ? undefined : tags,
         search: search.debouncedQuery || undefined,
+        projectId: activeProjectId ?? undefined,
       },
       {
         enabled: isAuthenticated,
@@ -121,6 +124,9 @@ const ConversationsSection = memo(() => {
           </Suspense>
         )}
         <SearchBar isSmallScreen={isSmallScreen} />
+      </div>
+      <div className="px-3 pt-2">
+        <ProjectSidebar />
       </div>
       {isSmallScreen && (
         <div

@@ -50,7 +50,12 @@ export const useUploadFileMutation = (
       const message_file = formData.get('message_file');
       const agent_id = (formData.get('agent_id') as string | undefined) ?? '';
       const assistant_id = (formData.get('assistant_id') as string | undefined) ?? '';
+      const projectId = (formData.get('projectId') as string | undefined) ?? '';
       const tool_resource = (formData.get('tool_resource') as string | undefined) ?? '';
+
+      if (projectId) {
+        queryClient.invalidateQueries([QueryKeys.projectSources, projectId]);
+      }
 
       if (message_file === 'true') {
         onSuccess?.(data, formData, context);

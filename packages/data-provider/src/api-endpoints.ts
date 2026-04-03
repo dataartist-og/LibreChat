@@ -126,6 +126,40 @@ export const forkConversation = () => `${conversationsRoot}/fork`;
 
 export const duplicateConversation = () => `${conversationsRoot}/duplicate`;
 
+const projectsRoot = `${BASE_URL}/api/projects`;
+const clarificationsRoot = `${BASE_URL}/api/clarifications`;
+const conversationClarificationsRoot = `${BASE_URL}/api/conversations`;
+
+export const projects = () => projectsRoot;
+
+export const projectById = (projectId: string) =>
+  `${projectsRoot}/${encodeURIComponent(projectId)}`;
+
+export const projectSources = (projectId: string) => `${projectById(projectId)}/sources`;
+
+export const projectSourceById = (projectId: string, sourceId: string) =>
+  `${projectSources(projectId)}/${encodeURIComponent(sourceId)}`;
+
+export const conversationClarifications = (
+  conversationId: string,
+  params?: { parentMessageId?: string; includeArchived?: boolean },
+) =>
+  `${conversationClarificationsRoot}/${encodeURIComponent(conversationId)}/clarifications${buildQuery(
+    params ?? {},
+  )}`;
+
+export const clarificationById = (clarificationId: string) =>
+  `${clarificationsRoot}/${encodeURIComponent(clarificationId)}`;
+
+export const clarificationIntegrate = (clarificationId: string) =>
+  `${clarificationById(clarificationId)}/integrate`;
+
+export const clarificationReanchor = (clarificationId: string) =>
+  `${clarificationById(clarificationId)}/reanchor`;
+
+export const messageRevisions = (messageId: string) =>
+  `${BASE_URL}/api/messages/${encodeURIComponent(messageId)}/revisions`;
+
 export const search = (q: string, cursor?: string | null) =>
   `${BASE_URL}/api/search?q=${q}${cursor ? `&cursor=${cursor}` : ''}`;
 

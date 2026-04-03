@@ -1,23 +1,29 @@
 import { memo, useMemo } from 'react';
-import { useRecoilValue } from 'recoil';
+import { FolderOpen } from 'lucide-react';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import { useMediaQuery } from '@librechat/client';
 import { getConfigDefaults, PermissionTypes, Permissions } from 'librechat-data-provider';
 import ModelSelector from './Menus/Endpoints/ModelSelector';
-import { useGetStartupConfig } from '~/data-provider';
+import { useGetStartupConfig, useProjectQuery } from '~/data-provider';
 import ExportAndShareMenu from './ExportAndShareMenu';
 import { OpenSidebar, PresetsMenu } from './Menus';
+import { ProjectSourcesPanel } from '~/components/Projects';
 import BookmarkMenu from './Menus/BookmarkMenu';
 import { TemporaryChat } from './TemporaryChat';
 import AddMultiConvo from './AddMultiConvo';
-import { useHasAccess } from '~/hooks';
+import { useHasAccess, useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import store from '~/store';
 
 const defaultInterface = getConfigDefaults().interface;
 
 function Header() {
+  const localize = useLocalize();
   const { data: startupConfig } = useGetStartupConfig();
   const navVisible = useRecoilValue(store.sidebarExpanded);
+  const [, setProjectSourcesOpen] = useRecoilState(store.projectSourcesOpen);
+  const activeProjectId = useRecoilValue(store.activeProjectId);
+  const { data: activeProject } = useProjectQuery(activeProjectId);
 
   const interfaceConfig = useMemo(
     () => startupConfig?.interface ?? defaultInterface,
@@ -54,6 +60,17 @@ function Header() {
               )}
             >
               <ModelSelector startupConfig={startupConfig} />
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
+                aria-label={localize('com_ui_project_sources')}
+                onClick={() => setProjectSourcesOpen(true)}
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span className="truncate">
+                  {activeProject?.name ?? localize('com_ui_project_sources')}
+                </span>
+              </button>
               {interfaceConfig.presets === true && interfaceConfig.modelSelect && <PresetsMenu />}
               {hasAccessToBookmarks === true && <BookmarkMenu />}
               {hasAccessToMultiConvo === true && <AddMultiConvo />}
@@ -80,6 +97,7 @@ function Header() {
       </div>
       {/* Empty div for spacing */}
       <div />
+      <ProjectSourcesPanel />
     </div>
   );
 }

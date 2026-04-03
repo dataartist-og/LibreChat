@@ -10,6 +10,7 @@ import {
 } from 'librechat-data-provider';
 import type { Agent, TConversation } from 'librechat-data-provider';
 import { getCustomEndpointConfig } from '~/app/config';
+import { appendMathFormattingInstructions } from './math';
 
 const { mcp_all, mcp_delimiter } = Constants;
 
@@ -107,7 +108,7 @@ export async function loadAddedAgent(
 
     return {
       id: ephemeralId,
-      instructions: promptPrefix || '',
+      instructions: appendMathFormattingInstructions(promptPrefix) || '',
       provider: endpoint,
       model_parameters: {},
       model,
@@ -215,7 +216,7 @@ export async function loadAddedAgent(
 
   const result: Record<string, unknown> = {
     id: ephemeralId,
-    instructions: promptPrefix || '',
+    instructions: appendMathFormattingInstructions(promptPrefix) || '',
     provider: endpoint,
     model_parameters,
     model,

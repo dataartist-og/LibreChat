@@ -86,9 +86,9 @@ export default function Message(props: TMessageProps) {
       return 'w-full max-w-full md:px-5 lg:px-1 xl:px-5';
     }
     if (hasParallelContent) {
-      return 'md:max-w-[58rem] xl:max-w-[70rem]';
+      return 'md:max-w-[54rem] xl:max-w-[62rem]';
     }
-    return 'md:max-w-[47rem] xl:max-w-[55rem]';
+    return 'md:max-w-[42rem] xl:max-w-[48rem]';
   };
 
   const baseClasses = {

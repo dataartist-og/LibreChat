@@ -29,6 +29,7 @@ export interface ConversationMethods {
       search?: string;
       sortBy?: string;
       sortDirection?: string;
+      projectId?: string;
     },
   ): Promise<{ conversations: IConversation[]; nextCursor: string | null }>;
   getConvosQueried(
@@ -161,6 +162,7 @@ export function createConversationMethods(
     try {
       const Conversation = mongoose.models.Conversation as Model<IConversation>;
       const { getMessages } = getMessageMethods();
+      const Project = mongoose.models.Project as Model<{ projectId: string }>;
 
       if (metadata?.context) {
         logger.debug(`[saveConvo] ${metadata.context}`);
@@ -168,6 +170,40 @@ export function createConversationMethods(
 
       const messages = await getMessages({ conversationId }, '_id');
       const update: Record<string, unknown> = { ...convo, messages, user: userId };
+      const existingConversation = await Conversation.findOne({ conversationId, user: userId })
+        .select('projectId')
+        .lean();
+
+      if (update.projectId == null) {
+        if (existingConversation?.projectId) {
+          update.projectId = existingConversation.projectId;
+        } else if (Project != null) {
+          const defaultProject = await Project.findOneAndUpdate(
+            {
+              ownerUserId: userId,
+              archivedAt: null,
+              name: 'General',
+            },
+            {
+              $setOnInsert: {
+                projectId: crypto.randomUUID(),
+                ownerUserId: userId,
+                name: 'General',
+                description: null,
+                icon: null,
+                color: '#64748b',
+                archivedAt: null,
+              },
+            },
+            {
+              new: true,
+              upsert: true,
+            },
+          ).lean();
+
+          update.projectId = defaultProject?.projectId;
+        }
+      }
 
       if (newConversationId) {
         update.conversationId = newConversationId;
@@ -250,6 +286,7 @@ export function createConversationMethods(
       search,
       sortBy = 'updatedAt',
       sortDirection = 'desc',
+      projectId,
     }: {
       cursor?: string | null;
       limit?: number;
@@ -258,9 +295,49 @@ export function createConversationMethods(
       search?: string;
       sortBy?: string;
       sortDirection?: string;
+      projectId?: string;
     } = {},
   ) {
     const Conversation = mongoose.models.Conversation as Model<IConversation>;
+    const Project = mongoose.models.Project as Model<{ projectId: string }>;
+
+    if (Project != null) {
+      const defaultProject = await Project.findOneAndUpdate(
+        {
+          ownerUserId: user,
+          archivedAt: null,
+          name: 'General',
+        },
+        {
+          $setOnInsert: {
+            projectId: crypto.randomUUID(),
+            ownerUserId: user,
+            name: 'General',
+            description: null,
+            icon: null,
+            color: '#64748b',
+            archivedAt: null,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+        },
+      ).lean();
+
+      await Conversation.updateMany(
+        {
+          user,
+          $or: [{ projectId: null }, { projectId: { $exists: false } }],
+        },
+        {
+          $set: {
+            projectId: defaultProject?.projectId,
+          },
+        },
+      );
+    }
+
     const filters: FilterQuery<IConversation>[] = [{ user } as FilterQuery<IConversation>];
     if (isArchived) {
       filters.push({ isArchived: true } as FilterQuery<IConversation>);
@@ -272,6 +349,10 @@ export function createConversationMethods(
 
     if (Array.isArray(tags) && tags.length > 0) {
       filters.push({ tags: { $in: tags } } as FilterQuery<IConversation>);
+    }
+
+    if (projectId) {
+      filters.push({ projectId } as FilterQuery<IConversation>);
     }
 
     filters.push({
@@ -351,7 +432,7 @@ export function createConversationMethods(
 
       const convos = await Conversation.find(query)
         .select(
-          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL',
+          'conversationId projectId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL',
         )
         .sort(sortObj)
         .limit(limit + 1)

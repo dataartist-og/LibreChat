@@ -57,6 +57,36 @@ const { getMCPManager } = require('~/config');
 const db = require('~/models');
 
 const loadAgent = (params) => loadAgentFn(params, { getAgent: db.getAgent, getMCPServerTools });
+const OPENAI_TRANSPORT_MODE_ENV = 'LIBRECHAT_OPENAI_TRANSPORT_MODE';
+const preferredOfficialOpenAITitleModels = ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-5-mini'];
+
+function getConfiguredOpenAIModels() {
+  return (process.env.OPENAI_MODELS ?? '')
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+}
+
+function shouldUseFastOpenAITitleModel(model) {
+  return /\b(gpt-5|o1|o3)(?!\.|-chat)(?:-|$)/i.test(model ?? '');
+}
+
+function resolveOfficialOpenAITitleModel(currentModel) {
+  if (!shouldUseFastOpenAITitleModel(currentModel)) {
+    return undefined;
+  }
+
+  const configuredModels = new Set(getConfiguredOpenAIModels());
+  const configuredPreferredModel = preferredOfficialOpenAITitleModels.find((model) =>
+    configuredModels.has(model),
+  );
+
+  if (configuredPreferredModel) {
+    return configuredPreferredModel;
+  }
+
+  return preferredOfficialOpenAITitleModels[0];
+}
 
 class AgentClient extends BaseClient {
   constructor(options = {}) {
@@ -1024,6 +1054,14 @@ class AgentClient extends BaseClient {
       endpointConfig.titleModel !== Constants.CURRENT_MODEL
     ) {
       clientOptions.model = endpointConfig.titleModel;
+    } else if (
+      endpoint === EModelEndpoint.openAI &&
+      process.env[OPENAI_TRANSPORT_MODE_ENV] === 'official'
+    ) {
+      const fallbackTitleModel = resolveOfficialOpenAITitleModel(clientOptions.model);
+      if (fallbackTitleModel) {
+        clientOptions.model = fallbackTitleModel;
+      }
     }
 
     const options = await titleProviderConfig.getOptions({

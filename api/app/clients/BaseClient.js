@@ -10,6 +10,8 @@ const {
   encodeAndFormatAudios,
   encodeAndFormatVideos,
   encodeAndFormatDocuments,
+  isDocumentInputMimeType,
+  isRemoteOpenAIFile,
 } = require('@librechat/api');
 const {
   Constants,
@@ -1080,13 +1082,17 @@ class BaseClient {
   }
 
   async addDocuments(message, attachments) {
+    const useResponsesApi =
+      this.options.agent?.model_parameters?.useResponsesApi === true ||
+      attachments.some((file) => isRemoteOpenAIFile(file.source));
+
     const documentResult = await encodeAndFormatDocuments(
       this.options.req,
       attachments,
       {
         provider: this.options.agent?.provider ?? this.options.endpoint,
         endpoint: this.options.agent?.endpoint ?? this.options.endpoint,
-        useResponsesApi: this.options.agent?.model_parameters?.useResponsesApi,
+        useResponsesApi,
         model: this.modelOptions?.model ?? this.model,
       },
       getStrategyFunctions,
@@ -1174,7 +1180,7 @@ class BaseClient {
 
       if (file.type.startsWith('image/')) {
         categorizedAttachments.images.push(file);
-      } else if (file.type === 'application/pdf') {
+      } else if (isDocumentInputMimeType(file.type)) {
         categorizedAttachments.documents.push(file);
         allFiles.push(file);
       } else if (isBedrock && isBedrockDocumentType(file.type)) {

@@ -1,5 +1,6 @@
 import { memo, useMemo, ReactElement } from 'react';
 import { useRecoilValue } from 'recoil';
+import { AnnotatedAssistantMessage } from '~/components/Clarifications';
 import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 import Markdown from '~/components/Chat/Messages/Content/Markdown';
 import { useMessageContext } from '~/Providers';
@@ -18,19 +19,30 @@ type ContentType =
   | ReactElement;
 
 const TextPart = memo(function TextPart({ text, isCreatedByUser, showCursor }: TextPartProps) {
-  const { isSubmitting = false, isLatestMessage = false } = useMessageContext();
+  const { isSubmitting = false, isLatestMessage = false, messageId } = useMessageContext();
+  const activeProjectId = useRecoilValue(store.activeProjectId);
   const enableUserMsgMarkdown = useRecoilValue(store.enableUserMsgMarkdown);
   const showCursorState = useMemo(() => showCursor && isSubmitting, [showCursor, isSubmitting]);
 
   const content: ContentType = useMemo(() => {
     if (!isCreatedByUser) {
-      return <Markdown content={text} isLatestMessage={isLatestMessage} />;
+      return (
+        <AnnotatedAssistantMessage
+          message={{
+            messageId,
+            projectId: activeProjectId ?? undefined,
+            isCreatedByUser,
+          }}
+          content={text}
+          isLatestMessage={isLatestMessage}
+        />
+      );
     } else if (enableUserMsgMarkdown) {
       return <MarkdownLite content={text} />;
     } else {
       return <>{text}</>;
     }
-  }, [isCreatedByUser, enableUserMsgMarkdown, text, isLatestMessage]);
+  }, [activeProjectId, enableUserMsgMarkdown, isCreatedByUser, isLatestMessage, messageId, text]);
 
   return (
     <div

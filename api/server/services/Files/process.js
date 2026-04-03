@@ -20,7 +20,14 @@ const {
 } = require('librechat-data-provider');
 const { EnvVar } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
-const { sanitizeFilename, parseText, processAudioFile } = require('@librechat/api');
+const {
+  sanitizeFilename,
+  parseText,
+  processAudioFile,
+  ensureProjectSourceForFile,
+  createOpenAIFileClient,
+  isOpenAINativeUploadRequest,
+} = require('@librechat/api');
 const {
   convertImage,
   resizeAndConvert,
@@ -36,6 +43,40 @@ const { getStrategyFunctions } = require('./strategies');
 const { determineFileType } = require('~/server/utils');
 const { STTService } = require('./Audio/STTService');
 const db = require('~/models');
+
+const projectServiceDeps = {
+  ensureProjectAssociations: db.ensureProjectAssociations,
+  listProjects: db.listProjects,
+  getProject: db.getProject,
+  createProject: db.createProject,
+  updateProject: db.updateProject,
+  archiveProject: db.archiveProject,
+  createProjectSource: db.createProjectSource,
+  listProjectSources: db.listProjectSources,
+  getProjectSource: db.getProjectSource,
+  updateProjectSource: db.updateProjectSource,
+  deleteProjectSource: db.deleteProjectSource,
+  findFileById: db.findFileById,
+  updateFile: db.updateFile,
+};
+
+const openAIFileClientDeps = {
+  getUserKey: db.getUserKey,
+  getUserKeyValues: db.getUserKeyValues,
+};
+
+async function syncProjectSource({ req, result, metadata }) {
+  if (!metadata?.projectId || !result?.file_id || !result?.filename) {
+    return;
+  }
+
+  await ensureProjectSourceForFile(projectServiceDeps, req.user.id, {
+    projectId: metadata.projectId,
+    fileId: result.file_id,
+    title: result.filename,
+    description: metadata.description ?? null,
+  });
+}
 
 /**
  * Creates a modular file upload wrapper that ensures filename sanitization
@@ -125,15 +166,19 @@ const processDeleteRequest = async ({ req, files }) => {
   const deletionMethods = {};
   const promises = [];
 
-  /** @type {Record<string, OpenAI | undefined>} */
-  const client = { [FileSources.openai]: undefined, [FileSources.azure]: undefined };
-  const initializeClients = async () => {
+  /** @type {{ assistants: Record<string, OpenAI | undefined>; messageAttachment: OpenAI | undefined }} */
+  const client = {
+    assistants: { [FileSources.openai]: undefined, [FileSources.azure]: undefined },
+    messageAttachment: undefined,
+  };
+
+  const initializeAssistantClients = async () => {
     if (appConfig.endpoints?.[EModelEndpoint.assistants]) {
       const openAIClient = await getOpenAIClient({
         req,
         overrideEndpoint: EModelEndpoint.assistants,
       });
-      client[FileSources.openai] = openAIClient.openai;
+      client.assistants[FileSources.openai] = openAIClient.openai;
     }
 
     if (!appConfig.endpoints?.[EModelEndpoint.azureOpenAI]?.assistants) {
@@ -144,11 +189,31 @@ const processDeleteRequest = async ({ req, files }) => {
       req,
       overrideEndpoint: EModelEndpoint.azureAssistants,
     });
-    client[FileSources.azure] = azureClient.openai;
+    client.assistants[FileSources.azure] = azureClient.openai;
+  };
+
+  const getOpenAIStorageClient = async (file) => {
+    if (file.context !== FileContext.message_attachment) {
+      if (!client.assistants[file.source]) {
+        await initializeAssistantClients();
+      }
+
+      return client.assistants[file.source];
+    }
+
+    if (file.source === FileSources.openai) {
+      if (!client.messageAttachment) {
+        client.messageAttachment = await createOpenAIFileClient(req, openAIFileClientDeps);
+      }
+
+      return client.messageAttachment;
+    }
+
+    return undefined;
   };
 
   if (req.body.assistant_id !== undefined) {
-    await initializeClients();
+    await initializeAssistantClients();
   }
 
   const agentFiles = [];
@@ -167,11 +232,7 @@ const processDeleteRequest = async ({ req, files }) => {
       continue;
     }
 
-    if (checkOpenAIStorage(source) && !client[source]) {
-      await initializeClients();
-    }
-
-    const openai = client[source];
+    const openai = checkOpenAIStorage(source) ? await getOpenAIStorageClient(file) : undefined;
 
     if (req.body.assistant_id && req.body.tool_resource) {
       promises.push(
@@ -299,6 +360,7 @@ const processImageFile = async ({ req, res, metadata, returnFile = false }) => {
   const result = await db.createFile(
     {
       user: req.user.id,
+      projectId: metadata.projectId,
       file_id,
       temp_file_id,
       bytes,
@@ -316,6 +378,8 @@ const processImageFile = async ({ req, res, metadata, returnFile = false }) => {
   if (returnFile) {
     return result;
   }
+
+  await syncProjectSource({ req, result, metadata });
   res.status(200).json({ message: 'File uploaded and processed successfully', ...result });
 };
 
@@ -379,17 +443,33 @@ const uploadImageBuffer = async ({ req, context, metadata = {}, resize = true })
 const processFileUpload = async ({ req, res, metadata }) => {
   const appConfig = req.config;
   const isAssistantUpload = isAssistantsEndpoint(metadata.endpoint);
+  const isNativeOpenAIUpload =
+    !isAssistantUpload &&
+    isOpenAINativeUploadRequest({
+      endpoint: metadata.endpoint,
+      endpointType: metadata.endpointType,
+      tool_resource: metadata.tool_resource,
+      mimetype: req.file?.mimetype,
+    });
   const assistantSource =
     metadata.endpoint === EModelEndpoint.azureAssistants ? FileSources.azure : FileSources.openai;
   // Use the configured file strategy for regular file uploads (not vectordb)
-  const source = isAssistantUpload ? assistantSource : appConfig.fileStrategy;
+  const source = isAssistantUpload
+    ? assistantSource
+    : isNativeOpenAIUpload
+      ? FileSources.openai
+      : appConfig.fileStrategy;
   const { handleFileUpload } = getStrategyFunctions(source);
   const { file_id, temp_file_id = null } = metadata;
 
   /** @type {OpenAI | undefined} */
   let openai;
   if (checkOpenAIStorage(source)) {
-    ({ openai } = await getOpenAIClient({ req }));
+    if (isAssistantUpload) {
+      ({ openai } = await getOpenAIClient({ req }));
+    } else {
+      openai = await createOpenAIFileClient(req, openAIFileClientDeps);
+    }
   }
 
   const { file } = req;
@@ -423,7 +503,7 @@ const processFileUpload = async ({ req, res, metadata }) => {
     });
   }
 
-  let filepath = isAssistantUpload ? `${openai.baseURL}/files/${id}` : _filepath;
+  let filepath = checkOpenAIStorage(source) ? `${openai.baseURL}/files/${id}` : _filepath;
   if (isAssistantUpload && file.mimetype.startsWith('image')) {
     const result = await processImageFile({
       req,
@@ -437,13 +517,14 @@ const processFileUpload = async ({ req, res, metadata }) => {
   const result = await db.createFile(
     {
       user: req.user.id,
+      projectId: metadata.projectId,
       file_id: id ?? file_id,
       temp_file_id,
       bytes,
       filepath,
       filename: filename ?? sanitizeFilename(file.originalname),
       context: isAssistantUpload ? FileContext.assistants : FileContext.message_attachment,
-      model: isAssistantUpload ? req.body.model : undefined,
+      model: checkOpenAIStorage(source) ? req.body.model : undefined,
       type: file.mimetype,
       embedded,
       source,
@@ -452,6 +533,8 @@ const processFileUpload = async ({ req, res, metadata }) => {
     },
     true,
   );
+
+  await syncProjectSource({ req, result, metadata });
   res.status(200).json({ message: 'File uploaded and processed successfully', ...result });
 };
 
@@ -535,6 +618,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
         file_id,
         temp_file_id,
         user: req.user.id,
+        projectId: metadata.projectId,
         type,
         filepath: filepath ?? file.path,
         source: FileSources.text,
@@ -552,6 +636,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
         });
       }
       const result = await db.createFile(fileInfo, true);
+      await syncProjectSource({ req, result, metadata });
       return res
         .status(200)
         .json({ message: 'Agent file uploaded and processed successfully', ...result });
@@ -704,6 +789,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
 
   const fileInfo = removeNullishValues({
     user: req.user.id,
+    projectId: metadata.projectId,
     file_id,
     temp_file_id,
     bytes,
@@ -720,6 +806,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
   });
 
   const result = await db.createFile(fileInfo, true);
+  await syncProjectSource({ req, result, metadata });
 
   res.status(200).json({ message: 'Agent file uploaded and processed successfully', ...result });
 };

@@ -745,6 +745,92 @@ export function archiveConversation(
   return request.post(endpoints.archiveConversation(), { arg: payload });
 }
 
+export function listProjects(): Promise<t.TProject[]> {
+  return request.get(endpoints.projects());
+}
+
+export function createProject(payload: t.TProjectCreateRequest): Promise<t.TProject> {
+  return request.post(endpoints.projects(), payload);
+}
+
+export function getProjectById(projectId: string): Promise<t.TProject> {
+  return request.get(endpoints.projectById(projectId));
+}
+
+export function updateProject(payload: t.TProjectUpdateRequest): Promise<t.TProject> {
+  const { projectId, ...update } = payload;
+  return request.patch(endpoints.projectById(projectId), update);
+}
+
+export function archiveProject(projectId: string): Promise<t.TProject> {
+  return request.delete(endpoints.projectById(projectId));
+}
+
+export function listProjectSources(projectId: string): Promise<t.TProjectSource[]> {
+  return request.get(endpoints.projectSources(projectId));
+}
+
+export function createProjectSource(
+  payload: t.TProjectSourceCreateRequest,
+): Promise<t.TProjectSource> {
+  const { projectId, ...data } = payload;
+  return request.post(endpoints.projectSources(projectId), data);
+}
+
+export function updateProjectSource(
+  payload: t.TProjectSourceUpdateRequest,
+): Promise<t.TProjectSource> {
+  const { sourceId, projectId, ...data } = payload;
+  return request.patch(endpoints.projectSourceById(projectId, sourceId), data);
+}
+
+export function deleteProjectSource(projectId: string, sourceId: string): Promise<t.TProjectSource> {
+  return request.delete(endpoints.projectSourceById(projectId, sourceId));
+}
+
+export function listClarifications(
+  params: t.TClarificationListParams,
+): Promise<t.TClarification[]> {
+  const { conversationId, parentMessageId, includeArchived } = params;
+  return request.get(
+    endpoints.conversationClarifications(conversationId, {
+      parentMessageId,
+      includeArchived,
+    }),
+  );
+}
+
+export function createClarification(
+  payload: t.TClarificationCreateRequest,
+): Promise<t.TClarification> {
+  return request.post(endpoints.conversationClarifications(payload.conversationId), payload);
+}
+
+export function updateClarification(
+  payload: t.TClarificationUpdateRequest,
+): Promise<t.TClarification> {
+  const { clarificationId, ...data } = payload;
+  return request.patch(endpoints.clarificationById(clarificationId), data);
+}
+
+export function integrateClarification(
+  payload: t.TClarificationIntegrateRequest,
+): Promise<t.TClarification> {
+  const { clarificationId, ...data } = payload;
+  return request.post(endpoints.clarificationIntegrate(clarificationId), data);
+}
+
+export function reanchorClarification(
+  payload: t.TClarificationReanchorRequest,
+): Promise<t.TClarification> {
+  const { clarificationId, ...data } = payload;
+  return request.post(endpoints.clarificationReanchor(clarificationId), data);
+}
+
+export function listMessageRevisions(messageId: string): Promise<t.TMessageRevision[]> {
+  return request.get(endpoints.messageRevisions(messageId));
+}
+
 export function genTitle(payload: m.TGenTitleRequest): Promise<m.TGenTitleResponse> {
   return request.get(endpoints.genTitle(payload.conversationId));
 }

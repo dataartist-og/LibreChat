@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { v4 } from 'uuid';
-import { useSetRecoilState } from 'recoil';
+import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   QueryKeys,
   Constants,
   EToolResources,
+  inferMimeType,
   mergeFileConfig,
   isAssistantsEndpoint,
   getEndpointFileConfig,
@@ -18,11 +19,12 @@ import type { ExtendedFile, FileSetter } from '~/common';
 import type { TConversation } from 'librechat-data-provider';
 import { logger, validateFiles, cachePreview, getCachedPreview, removePreviewEntry } from '~/utils';
 import { useGetFileConfig, useUploadFileMutation } from '~/data-provider';
+import { useGetStartupConfig } from '~/data-provider';
 import useLocalize, { TranslationKeys } from '~/hooks/useLocalize';
 import { useDelayedUploadToast } from './useDelayedUploadToast';
 import { processFileForUpload } from '~/utils/heicConverter';
 import { useChatContext } from '~/Providers/ChatContext';
-import { ephemeralAgentByConvoId } from '~/store';
+import store, { ephemeralAgentByConvoId } from '~/store';
 import useClientResize from './useClientResize';
 import useUpdateFiles from './useUpdateFiles';
 
@@ -57,6 +59,7 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
   const setEphemeralAgent = useSetRecoilState(
     ephemeralAgentByConvoId(conversation?.conversationId ?? Constants.NEW_CONVO),
   );
+  const activeProjectId = useRecoilValue(store.activeProjectId);
   const setError = (error: string) => setErrors((prevErrors) => [...prevErrors, error]);
   const { addFile, replaceFile, updateFileById, deleteFileById } = useUpdateFiles(
     params?.fileSetter ?? setFiles,
@@ -79,6 +82,8 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
   const { data: fileConfig = null } = useGetFileConfig({
     select: (data) => mergeFileConfig(data),
   });
+  const { data: startupConfig = null } = useGetStartupConfig();
+  const mergedFileConfig = useMemo(() => fileConfig ?? mergeFileConfig(undefined), [fileConfig]);
 
   const displayToast = useCallback(() => {
     if (errors.length > 1) {
@@ -211,6 +216,11 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
       }
     }
 
+    const projectId = metadata.projectId ?? conversation?.projectId ?? activeProjectId ?? '';
+    if (projectId) {
+      formData.append('projectId', projectId);
+    }
+
     if (!isAssistantsEndpoint(endpointType ?? endpoint)) {
       if (!agent_id) {
         formData.append('message_file', 'true');
@@ -256,6 +266,38 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
     uploadFile.mutate(formData);
   };
 
+  const shouldDefaultToContext = useCallback(
+    (file: File, toolResource?: string) => {
+      if (toolResource != null && toolResource !== '') {
+        return false;
+      }
+
+      if (isAssistantsEndpoint(endpointType ?? endpoint)) {
+        return false;
+      }
+
+      const openAINativeUploadsEnabled = startupConfig?.openAINativeFileUploadsEnabled === true;
+      if (
+        openAINativeUploadsEnabled &&
+        (endpoint === 'openAI' || endpointType === 'openAI')
+      ) {
+        return false;
+      }
+
+      const mimeType = inferMimeType(file.name, file.type);
+      if (!mimeType || mimeType.startsWith('image/')) {
+        return false;
+      }
+
+      return mergedFileConfig.checkType(mimeType, [
+        ...(mergedFileConfig.text?.supportedMimeTypes ?? []),
+        ...(mergedFileConfig.ocr?.supportedMimeTypes ?? []),
+        ...(mergedFileConfig.stt?.supportedMimeTypes ?? []),
+      ]);
+    },
+    [endpoint, endpointType, mergedFileConfig, startupConfig?.openAINativeFileUploadsEnabled],
+  );
+
   const loadImage = (extendedFile: ExtendedFile, preview: string) => {
     const img = new Image();
     img.onload = async () => {
@@ -275,6 +317,12 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
   const handleFiles = async (_files: FileList | File[], _toolResource?: string) => {
     abortControllerRef.current = new AbortController();
     const fileList = Array.from(_files);
+    const toolResource =
+      _toolResource == null || _toolResource === ''
+        ? fileList.every((file) => shouldDefaultToContext(file, _toolResource))
+          ? EToolResources.context
+          : _toolResource
+        : _toolResource;
     /* Validate files */
     let filesAreValid: boolean;
     try {
@@ -290,7 +338,7 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
         setError,
         fileConfig,
         endpointFileConfig,
-        toolResource: _toolResource,
+        toolResource,
       });
     } catch (error) {
       console.error('file validation error', error);
@@ -320,8 +368,8 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
           size: originalFile.size,
         };
 
-        if (_toolResource != null && _toolResource !== '') {
-          initialExtendedFile.tool_resource = _toolResource;
+        if (toolResource != null && toolResource !== '') {
+          initialExtendedFile.tool_resource = toolResource;
         }
 
         // Add file immediately to show in UI

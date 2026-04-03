@@ -142,6 +142,25 @@ export type ConversationCursorData = {
   nextCursor?: string | null;
 };
 
+function getProjectIdFromQueryKey(queryKey: readonly unknown[]): string | null {
+  const params = queryKey[1];
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    return null;
+  }
+
+  const projectId = (params as { projectId?: string | null }).projectId;
+  return projectId ?? null;
+}
+
+function queryMatchesProject(queryKey: readonly unknown[], projectId?: string | null): boolean {
+  const queryProjectId = getProjectIdFromQueryKey(queryKey);
+  if (!queryProjectId) {
+    return true;
+  }
+
+  return queryProjectId === (projectId ?? null);
+}
+
 // === InfiniteData helpers for cursor-based convo queries ===
 
 export function findConversationInInfinite(
@@ -208,6 +227,10 @@ export function addConversationToAllConversationsQueries(
     .findAll([QueryKeys.allConversations], { exact: false });
 
   for (const query of queries) {
+    if (!queryMatchesProject(query.queryKey, newConversation.projectId)) {
+      continue;
+    }
+
     queryClient.setQueryData<InfiniteData<ConversationCursorData>>(query.queryKey, (old) => {
       if (
         !old ||
@@ -322,6 +345,10 @@ export function addConvoToAllQueries(queryClient: QueryClient, newConvo: TConver
     .findAll([QueryKeys.allConversations], { exact: false });
 
   for (const query of queries) {
+    if (!queryMatchesProject(query.queryKey, newConvo.projectId)) {
+      continue;
+    }
+
     queryClient.setQueryData<InfiniteData<ConversationCursorData>>(query.queryKey, (oldData) => {
       if (!oldData) {
         return oldData;

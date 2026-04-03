@@ -210,6 +210,46 @@ describe('AgentClient - titleConvo', () => {
       expect(generateTitleCall.clientOptions.model).toBe('gpt-4'); // Should use agent's model
     });
 
+    it('should use a fast fallback title model for official OpenAI transport when no titleModel is configured', async () => {
+      const originalTransportMode = process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE;
+      const originalOpenAIModels = process.env.OPENAI_MODELS;
+
+      process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE = 'official';
+      process.env.OPENAI_MODELS = 'gpt-5,gpt-4o-mini';
+
+      mockAgent.model_parameters.model = 'gpt-5';
+      mockReq.body.model = 'gpt-5';
+      mockReq.config = {
+        endpoints: {
+          [EModelEndpoint.openAI]: {
+            titleConvo: true,
+          },
+        },
+      };
+
+      const text = 'Test conversation text';
+      const abortController = new AbortController();
+
+      try {
+        await client.titleConvo({ text, abortController });
+      } finally {
+        if (originalTransportMode === undefined) {
+          delete process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE;
+        } else {
+          process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE = originalTransportMode;
+        }
+
+        if (originalOpenAIModels === undefined) {
+          delete process.env.OPENAI_MODELS;
+        } else {
+          process.env.OPENAI_MODELS = originalOpenAIModels;
+        }
+      }
+
+      const generateTitleCall = mockRun.generateTitle.mock.calls[0][0];
+      expect(generateTitleCall.clientOptions.model).toBe('gpt-4o-mini');
+    });
+
     it('should not use titleModel when it equals CURRENT_MODEL constant', async () => {
       mockReq.config = {
         endpoints: {

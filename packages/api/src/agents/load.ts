@@ -14,6 +14,7 @@ import type {
   Agent,
 } from 'librechat-data-provider';
 import { getCustomEndpointConfig } from '~/app/config';
+import { appendMathFormattingInstructions } from './math';
 
 const { mcp_all, mcp_delimiter } = Constants;
 
@@ -89,7 +90,7 @@ export async function loadEphemeralAgent(
     }
   }
 
-  const instructions = req.body?.promptPrefix;
+  const instructions = appendMathFormattingInstructions(req.body?.promptPrefix);
 
   // Get endpoint config for modelDisplayLabel fallback
   const appConfig = req.config;

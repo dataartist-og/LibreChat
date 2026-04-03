@@ -58,7 +58,7 @@ const Markdown = memo(function Markdown({ content = '', isLatestMessage }: TCont
     remarkGfm,
     remarkDirective,
     artifactPlugin,
-    [remarkMath, { singleDollarTextMath: false }],
+    [remarkMath, { singleDollarTextMath: true }],
     unicodeCitation,
     mcpUIResourcePlugin,
   ];

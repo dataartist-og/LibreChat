@@ -18,6 +18,33 @@ const publicSharedLinksEnabled =
 
 const sharePointFilePickerEnabled = isEnabled(process.env.ENABLE_SHAREPOINT_FILEPICKER);
 const openidReuseTokens = isEnabled(process.env.OPENID_REUSE_TOKENS);
+const OPENAI_TRANSPORT_MODE_ENV = 'LIBRECHAT_OPENAI_TRANSPORT_MODE';
+const OPENAI_NATIVE_UPLOAD_ENV = 'LIBRECHAT_OPENAI_NATIVE_UPLOAD';
+
+function getOpenAITransportMode() {
+  if (process.env[OPENAI_TRANSPORT_MODE_ENV] === 'official') {
+    return 'official';
+  }
+
+  if (process.env[OPENAI_TRANSPORT_MODE_ENV] === 'proxy_context') {
+    return 'proxy_context';
+  }
+
+  return 'legacy';
+}
+
+function isNativeOpenAIUploadEnabled() {
+  const mode = getOpenAITransportMode();
+  if (mode === 'official') {
+    return true;
+  }
+
+  if (mode === 'proxy_context') {
+    return false;
+  }
+
+  return process.env[OPENAI_NATIVE_UPLOAD_ENV] === 'true';
+}
 
 function isBirthday() {
   const today = new Date();
@@ -77,6 +104,8 @@ function buildSharedPayload() {
     publicSharedLinksEnabled,
     analyticsGtmId: process.env.ANALYTICS_GTM_ID,
     openidReuseTokens,
+    openAITransportMode: getOpenAITransportMode(),
+    openAINativeFileUploadsEnabled: isNativeOpenAIUploadEnabled(),
   };
 
   const minPasswordLength = parseInt(process.env.MIN_PASSWORD_LENGTH, 10);

@@ -132,4 +132,54 @@ describe('initializeOpenAI – SSRF guard wiring', () => {
 
     expect(mockGetOpenAIConfig).not.toHaveBeenCalled();
   });
+
+  it('should force useResponsesApi when request includes native provider files', async () => {
+    const params = createParams({
+      OPENAI_API_KEY: 'sk-test',
+      OPENAI_REVERSE_PROXY: 'http://127.0.0.1:10531/v1',
+    });
+
+    params.req.body = {
+      key: '2099-01-01',
+      files: [{ file_id: 'file-native', source: 'openai' }],
+    } as BaseInitializeParams['req']['body'];
+
+    try {
+      await initializeOpenAI(params);
+    } finally {
+      (params as unknown as { _restore: () => void })._restore();
+    }
+
+    expect(mockGetOpenAIConfig).toHaveBeenCalledWith(
+      'sk-test',
+      expect.objectContaining({
+        modelOptions: expect.objectContaining({
+          useResponsesApi: true,
+        }),
+      }),
+      EModelEndpoint.openAI,
+    );
+  });
+
+  it('should bypass OPENAI_REVERSE_PROXY in official transport mode', async () => {
+    const params = createParams({
+      OPENAI_API_KEY: 'sk-test',
+      OPENAI_REVERSE_PROXY: 'http://127.0.0.1:10531/v1',
+      LIBRECHAT_OPENAI_TRANSPORT_MODE: 'official',
+    });
+
+    try {
+      await initializeOpenAI(params);
+    } finally {
+      (params as unknown as { _restore: () => void })._restore();
+    }
+
+    expect(mockGetOpenAIConfig).toHaveBeenCalledWith(
+      'sk-test',
+      expect.objectContaining({
+        reverseProxyUrl: undefined,
+      }),
+      EModelEndpoint.openAI,
+    );
+  });
 });

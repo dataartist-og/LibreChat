@@ -2,7 +2,7 @@ import type { DeleteResult, FilterQuery, Model } from 'mongoose';
 import logger from '~/config/winston';
 import { createTempChatExpirationDate } from '~/utils/tempChatRetention';
 import { tenantSafeBulkWrite } from '~/utils/tenantBulkWrite';
-import type { AppConfig, IMessage } from '~/types';
+import type { AppConfig, IConversation, IMessage } from '~/types';
 
 /** Simple UUID v4 regex to replace zod validation */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -85,8 +85,23 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
 
     try {
       const Message = mongoose.models.Message as Model<IMessage>;
+      const Conversation = mongoose.models.Conversation as Model<IConversation>;
+      let projectId = params.projectId;
+
+      if (projectId == null && params.conversationId) {
+        const conversation = await Conversation.findOne({
+          conversationId: params.conversationId,
+          user: userId,
+        })
+          .select('projectId')
+          .lean();
+
+        projectId = conversation?.projectId;
+      }
+
       const update: Record<string, unknown> = {
         ...params,
+        projectId,
         user: userId,
         messageId: params.newMessageId || params.messageId,
       };
@@ -180,6 +195,7 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
   async function recordMessage({
     user,
     endpoint,
+    projectId,
     messageId,
     conversationId,
     parentMessageId,
@@ -187,6 +203,7 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
   }: {
     user: string;
     endpoint?: string;
+    projectId?: string;
     messageId: string;
     conversationId?: string;
     parentMessageId?: string;
@@ -194,9 +211,24 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
   }) {
     try {
       const Message = mongoose.models.Message as Model<IMessage>;
+      const Conversation = mongoose.models.Conversation as Model<IConversation>;
+      let resolvedProjectId = projectId;
+
+      if (resolvedProjectId == null && conversationId) {
+        const conversation = await Conversation.findOne({
+          conversationId,
+          user,
+        })
+          .select('projectId')
+          .lean();
+
+        resolvedProjectId = conversation?.projectId;
+      }
+
       const message = {
         user,
         endpoint,
+        projectId: resolvedProjectId,
         messageId,
         conversationId,
         parentMessageId,

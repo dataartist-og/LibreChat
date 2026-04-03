@@ -168,9 +168,15 @@ export function convertInputToMessages(input: string | InputItem[]): InternalMes
                 },
               };
             }
-            if (part.type === 'input_file') {
-              const filePart = part as { filename?: string };
-              return { type: 'text', text: `[File: ${filePart.filename ?? 'unknown'}]` };
+            if (part.type === 'input_file' || part.type === 'file') {
+              const filePart = part as {
+                filename?: string;
+                file?: {
+                  filename?: string;
+                };
+              };
+              const filename = filePart.file?.filename ?? filePart.filename ?? 'unknown';
+              return { type: 'text', text: `[File: ${filename}]` };
             }
             return null;
           })

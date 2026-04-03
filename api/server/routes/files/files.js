@@ -6,12 +6,15 @@ const {
   refreshS3FileUrls,
   resolveUploadErrorMessage,
   verifyAgentUploadPermission,
+  createOpenAIFileClient,
+  isOpenAINativeUploadRequest,
 } = require('@librechat/api');
 const {
   Time,
   isUUID,
   CacheKeys,
   FileSources,
+  FileContext,
   ResourceType,
   EModelEndpoint,
   PermissionBits,
@@ -37,6 +40,10 @@ const { Readable } = require('stream');
 const db = require('~/models');
 
 const router = express.Router();
+const openAIFileClientDeps = {
+  getUserKey: db.getUserKey,
+  getUserKeyValues: db.getUserKeyValues,
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -310,7 +317,11 @@ router.get('/download/:userId/:file_id', fileAccess, async (req, res) => {
     // Access already validated by fileAccess middleware
     const file = req.fileAccess.file;
 
-    if (checkOpenAIStorage(file.source) && !file.model) {
+    if (
+      checkOpenAIStorage(file.source) &&
+      file.context !== FileContext.message_attachment &&
+      !file.model
+    ) {
       logger.warn(`File download requested by user ${userId} has no associated model: ${file_id}`);
       return res.status(400).send('The model used when creating this file is not available');
     }
@@ -331,16 +342,21 @@ router.get('/download/:userId/:file_id', fileAccess, async (req, res) => {
     };
 
     if (checkOpenAIStorage(file.source)) {
-      req.body = { model: file.model };
-      const endpointMap = {
-        [FileSources.openai]: EModelEndpoint.assistants,
-        [FileSources.azure]: EModelEndpoint.azureAssistants,
-      };
-      const { openai } = await getOpenAIClient({
-        req,
-        res,
-        overrideEndpoint: endpointMap[file.source],
-      });
+      let openai;
+      if (file.context !== FileContext.message_attachment) {
+        req.body = { model: file.model };
+        const endpointMap = {
+          [FileSources.openai]: EModelEndpoint.assistants,
+          [FileSources.azure]: EModelEndpoint.azureAssistants,
+        };
+        ({ openai } = await getOpenAIClient({
+          req,
+          res,
+          overrideEndpoint: endpointMap[file.source],
+        }));
+      } else {
+        openai = await createOpenAIFileClient(req, openAIFileClientDeps);
+      }
       logger.debug(`Downloading file ${file_id} from OpenAI`);
       const passThrough = await getDownloadStream(file_id, openai);
       setHeaders();
@@ -379,6 +395,13 @@ router.post('/', async (req, res) => {
     metadata.temp_file_id = metadata.file_id;
     metadata.file_id = req.file_id;
 
+    const useNativeOpenAIUpload = isOpenAINativeUploadRequest({
+      endpoint: metadata.endpoint,
+      endpointType: metadata.endpointType,
+      tool_resource: metadata.tool_resource,
+      mimetype: req.file?.mimetype,
+    });
+
     if (isAssistantsEndpoint(metadata.endpoint)) {
       return await processFileUpload({ req, res, metadata });
     }
@@ -401,6 +424,10 @@ router.post('/', async (req, res) => {
       if (denied) {
         return;
       }
+    }
+
+    if (useNativeOpenAIUpload) {
+      return await processFileUpload({ req, res, metadata });
     }
 
     return await processAgentFileUpload({ req, res, metadata });

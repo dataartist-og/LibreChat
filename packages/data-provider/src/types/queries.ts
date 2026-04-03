@@ -19,11 +19,12 @@ export type ConversationListParams = {
   sortDirection?: 'asc' | 'desc';
   tags?: string[];
   search?: string;
+  projectId?: string;
 };
 
 export type MinimalConversation = Pick<
   s.TConversation,
-  'conversationId' | 'endpoint' | 'title' | 'createdAt' | 'updatedAt' | 'user'
+  'conversationId' | 'projectId' | 'endpoint' | 'title' | 'createdAt' | 'updatedAt' | 'user'
 >;
 
 export type ConversationListResponse = {

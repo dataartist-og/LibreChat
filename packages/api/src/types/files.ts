@@ -84,16 +84,10 @@ export interface GoogleDocumentBlock {
 export interface OpenAIFileBlock {
   type: 'file';
   file: {
-    filename: string;
-    file_data: string;
+    filename?: string;
+    file_data?: string;
+    file_id?: string;
   };
-}
-
-/** OpenAI Responses API file format */
-export interface OpenAIInputFileBlock {
-  type: 'input_file';
-  filename: string;
-  file_data: string;
 }
 
 /** Bedrock Converse API document block (passthrough via @langchain/aws) */
@@ -112,7 +106,6 @@ export type DocumentBlock =
   | AnthropicDocumentBlock
   | GoogleDocumentBlock
   | OpenAIFileBlock
-  | OpenAIInputFileBlock
   | BedrockDocumentBlock;
 
 export interface DocumentResult {

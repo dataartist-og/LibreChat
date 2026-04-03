@@ -3,6 +3,7 @@ import type { Document, Types } from 'mongoose';
 // @ts-ignore
 export interface IConversation extends Document {
   conversationId: string;
+  projectId?: string;
   title?: string;
   user?: string;
   messages?: Types.ObjectId[];

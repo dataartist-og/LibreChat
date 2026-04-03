@@ -823,6 +823,8 @@ export type TStartupConfig = {
   sharePointBaseUrl?: string;
   sharePointPickerGraphScope?: string;
   sharePointPickerSharePointScope?: string;
+  openAITransportMode?: 'official' | 'proxy_context' | 'legacy';
+  openAINativeFileUploadsEnabled?: boolean;
   openidReuseTokens?: boolean;
   minPasswordLength?: number;
   webSearch?: {

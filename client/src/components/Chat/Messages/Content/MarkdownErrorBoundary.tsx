@@ -1,12 +1,14 @@
 import React from 'react';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import supersub from 'remark-supersub';
 import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import type { PluggableList } from 'unified';
 import { code, codeNoExecution, a, p } from './MarkdownComponents';
 import { CodeBlockProvider } from '~/Providers';
-import { langSubset } from '~/utils';
+import { langSubset, preprocessLaTeX } from '~/utils';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -45,8 +47,10 @@ class MarkdownErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       const { content, codeExecution = true } = this.props;
+      const fallbackContent = preprocessLaTeX(content);
 
       const rehypePlugins: PluggableList = [
+        [rehypeKatex],
         [
           rehypeHighlight,
           {
@@ -64,6 +68,7 @@ class MarkdownErrorBoundary extends React.Component<
               /** @ts-ignore */
               supersub,
               remarkGfm,
+              [remarkMath, { singleDollarTextMath: true }],
             ]}
             /** @ts-ignore */
             rehypePlugins={rehypePlugins}
@@ -77,7 +82,7 @@ class MarkdownErrorBoundary extends React.Component<
               }
             }
           >
-            {content}
+            {fallbackContent}
           </ReactMarkdown>
         </CodeBlockProvider>
       );

@@ -76,6 +76,8 @@ afterEach(() => {
   delete process.env.SAML_ISSUER;
   delete process.env.SAML_CERT;
   delete process.env.SAML_SESSION_SECRET;
+  delete process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE;
+  delete process.env.LIBRECHAT_OPENAI_NATIVE_UPLOAD;
 });
 
 describe('GET /api/config', () => {
@@ -179,6 +181,8 @@ describe('GET /api/config', () => {
       expect(response.body.appTitle).toBe('Test App');
       expect(response.body).toHaveProperty('emailLoginEnabled');
       expect(response.body).toHaveProperty('serverDomain');
+      expect(response.body.openAITransportMode).toBe('legacy');
+      expect(response.body.openAINativeFileUploadsEnabled).toBe(false);
     });
 
     it('should return 500 when getAppConfig throws', async () => {
@@ -255,6 +259,17 @@ describe('GET /api/config', () => {
       expect(response.body.bundlerURL).toBe('https://bundler.test');
       expect(response.body.staticBundlerURL).toBe('https://static-bundler.test');
       expect(response.body.conversationImportMaxFileSize).toBe(5000000);
+    });
+
+    it('should expose official openai transport mode when configured', async () => {
+      mockGetAppConfig.mockResolvedValue(baseAppConfig);
+      process.env.LIBRECHAT_OPENAI_TRANSPORT_MODE = 'official';
+      const app = createApp(mockUser);
+
+      const response = await request(app).get('/api/config');
+
+      expect(response.body.openAITransportMode).toBe('official');
+      expect(response.body.openAINativeFileUploadsEnabled).toBe(true);
     });
 
     it('should merge per-user balance override into config', async () => {

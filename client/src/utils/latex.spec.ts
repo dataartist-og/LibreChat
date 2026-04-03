@@ -8,17 +8,17 @@ describe('preprocessLaTeX', () => {
 
   test('returns the same string if no dollar signs are present', () => {
     const content = 'This has LaTeX \\(x^2\\) and \\[y^2\\] but no dollars';
-    expect(preprocessLaTeX(content)).toBe(content);
+    expect(preprocessLaTeX(content)).toBe('This has LaTeX $x^2$ and \n$$\ny^2\n$$\n but no dollars');
   });
 
   test('preserves valid inline LaTeX delimiters \\(...\\)', () => {
     const content = 'This is inline LaTeX: \\(x^2 + y^2 = z^2\\)';
-    expect(preprocessLaTeX(content)).toBe(content);
+    expect(preprocessLaTeX(content)).toBe('This is inline LaTeX: $x^2 + y^2 = z^2$');
   });
 
   test('preserves valid block LaTeX delimiters \\[...\\]', () => {
     const content = 'This is block LaTeX: \\[E = mc^2\\]';
-    expect(preprocessLaTeX(content)).toBe(content);
+    expect(preprocessLaTeX(content)).toBe('This is block LaTeX: \n$$\nE = mc^2\n$$\n');
   });
 
   test('preserves valid double dollar delimiters', () => {
@@ -28,13 +28,13 @@ describe('preprocessLaTeX', () => {
 
   test('converts single dollar delimiters to double dollars', () => {
     const content = 'Inline math: $x^2 + y^2 = z^2$';
-    const expected = 'Inline math: $$x^2 + y^2 = z^2$$';
+    const expected = 'Inline math: $x^2 + y^2 = z^2$';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('converts multiple single dollar expressions', () => {
     const content = 'First $a + b = c$ and second $x^2 + y^2 = z^2$';
-    const expected = 'First $$a + b = c$$ and second $$x^2 + y^2 = z^2$$';
+    const expected = 'First $a + b = c$ and second $x^2 + y^2 = z^2$';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
@@ -64,13 +64,13 @@ describe('preprocessLaTeX', () => {
 
   test('converts LaTeX expressions while escaping currency', () => {
     const content = 'LaTeX $x^2$ and price $50';
-    const expected = 'LaTeX $$x^2$$ and price \\$50';
+    const expected = 'LaTeX $x^2$ and price \\$50';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles Goldbach Conjecture example', () => {
     const content = '- **Goldbach Conjecture**: $2n = p + q$ (every even integer > 2)';
-    const expected = '- **Goldbach Conjecture**: $$2n = p + q$$ (every even integer > 2)';
+    const expected = '- **Goldbach Conjecture**: $2n = p + q$ (every even integer > 2)';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
@@ -102,51 +102,55 @@ Chemical $\\ce{H2O}$
 Valid brackets \\[z^2\\]`;
     const expected = `Valid double $$y^2$$
 Currency \\$100 and \\$200
-Single dollar math $$x^2 + y^2$$
+Single dollar math $x^2 + y^2$
 Chemical $$\\\\ce{H2O}$$
-Valid brackets \\[z^2\\]`;
+Valid brackets 
+$$
+z^2
+$$
+`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles multiple equations with currency', () => {
     const content = `- **Euler's Totient Function**: $\\phi(n) = n \\prod_{p|n} \\left(1 - \\frac{1}{p}\\right)$
 - **Total Savings**: $500 + $200 + $150 = $850`;
-    const expected = `- **Euler's Totient Function**: $$\\phi(n) = n \\prod_{p|n} \\left(1 - \\frac{1}{p}\\right)$$
+    const expected = `- **Euler's Totient Function**: $\\phi(n) = n \\prod_{p|n} \\left(1 - \\frac{1}{p}\\right)$
 - **Total Savings**: \\$500 + \\$200 + \\$150 = \\$850`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles inline code blocks', () => {
     const content = 'Outside $x^2$ and inside code: `$100`';
-    const expected = 'Outside $$x^2$$ and inside code: `$100`';
+    const expected = 'Outside $x^2$ and inside code: `$100`';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles multiline code blocks', () => {
     const content = '```\n$100\n$variable\n```\nOutside $x^2$';
-    const expected = '```\n$100\n$variable\n```\nOutside $$x^2$$';
+    const expected = '```\n$100\n$variable\n```\nOutside $x^2$';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('preserves LaTeX expressions with special characters', () => {
     const content = 'The set is defined as $\\{x | x > 0\\}$.';
-    const expected = 'The set is defined as $$\\{x | x > 0\\}$$.';
+    const expected = 'The set is defined as $\\{x | x > 0\\}$.';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles complex physics equations', () => {
     const content = `- **Schrödinger Equation**: $i\\hbar\\frac{\\partial}{\\partial t}|\\psi\\rangle = \\hat{H}|\\psi\\rangle$
 - **Einstein Field Equations**: $G_{\\mu\\nu} = \\frac{8\\pi G}{c^4} T_{\\mu\\nu}$`;
-    const expected = `- **Schrödinger Equation**: $$i\\hbar\\frac{\\partial}{\\partial t}|\\psi\\rangle = \\hat{H}|\\psi\\rangle$$
-- **Einstein Field Equations**: $$G_{\\mu\\nu} = \\frac{8\\pi G}{c^4} T_{\\mu\\nu}$$`;
+    const expected = `- **Schrödinger Equation**: $i\\hbar\\frac{\\partial}{\\partial t}|\\psi\\rangle = \\hat{H}|\\psi\\rangle$
+- **Einstein Field Equations**: $G_{\\mu\\nu} = \\frac{8\\pi G}{c^4} T_{\\mu\\nu}$`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles financial calculations with currency', () => {
     const content = `- **Simple Interest**: $A = P + Prt = $1,000 + ($1,000)(0.05)(2) = $1,100$
 - **ROI**: $\\text{ROI} = \\frac{$1,200 - $1,000}{$1,000} \\times 100\\% = 20\\%$`;
-    const expected = `- **Simple Interest**: $$A = P + Prt = \\$1,000 + (\\$1,000)(0.05)(2) = \\$1,100$$
-- **ROI**: $$\\text{ROI} = \\frac{\\$1,200 - \\$1,000}{\\$1,000} \\times 100\\% = 20\\%$$`;
+    const expected = `- **Simple Interest**: $A = P + Prt = \\$1,000 + (\\$1,000)(0.05)(2) = \\$1,100$
+- **ROI**: $\\text{ROI} = \\frac{\\$1,200 - \\$1,000}{\\$1,000} \\times 100\\% = 20\\%$`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
@@ -160,13 +164,13 @@ Valid brackets \\[z^2\\]`;
     const content =
       'Matrix determinant: $\\det(A) = \\sum_{\\sigma \\in S_n} \\text{sgn}(\\sigma) \\prod_{i=1}^n a_{i,\\sigma(i)}$';
     const expected =
-      'Matrix determinant: $$\\det(A) = \\sum_{\\sigma \\in S_n} \\text{sgn}(\\sigma) \\prod_{i=1}^n a_{i,\\sigma(i)}$$';
+      'Matrix determinant: $\\det(A) = \\sum_{\\sigma \\in S_n} \\text{sgn}(\\sigma) \\prod_{i=1}^n a_{i,\\sigma(i)}$';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('preserves spacing in equations', () => {
     const content = 'Equation: $f(x) = 2x + 3$ where x is a variable.';
-    const expected = 'Equation: $$f(x) = 2x + 3$$ where x is a variable.';
+    const expected = 'Equation: $f(x) = 2x + 3$ where x is a variable.';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
@@ -180,31 +184,31 @@ y$ which spans lines`;
 
   test('handles multiple dollar signs in text', () => {
     const content = 'Price $100 then equation $x + y = z$ then another price $50';
-    const expected = 'Price \\$100 then equation $$x + y = z$$ then another price \\$50';
+    const expected = 'Price \\$100 then equation $x + y = z$ then another price \\$50';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles complex LaTeX with currency in same expression', () => {
     const content = 'Calculate $\\text{Total} = \\$500 + \\$200$';
-    const expected = 'Calculate $$\\text{Total} = \\$500 + \\$200$$';
+    const expected = 'Calculate $\\text{Total} = \\$500 + \\$200$';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('preserves already escaped dollars in LaTeX', () => {
     const content = 'The formula $f(x) = \\$2x$ represents cost';
-    const expected = 'The formula $$f(x) = \\$2x$$ represents cost';
+    const expected = 'The formula $f(x) = \\$2x$ represents cost';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles adjacent LaTeX and currency', () => {
     const content = 'Formula $x^2$ costs $25';
-    const expected = 'Formula $$x^2$$ costs \\$25';
+    const expected = 'Formula $x^2$ costs \\$25';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
   test('handles LaTeX with special characters and currency', () => {
     const content = 'Set $\\{x | x > \\$0\\}$ for positive prices';
-    const expected = 'Set $$\\{x | x > \\$0\\}$$ for positive prices';
+    const expected = 'Set $\\{x | x > \\$0\\}$ for positive prices';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
@@ -216,7 +220,61 @@ y$ which spans lines`;
 
   test('handles mixed backtick and non-backtick cases', () => {
     const content = 'Use $x + y$ in math but `$lookup` in code';
-    const expected = 'Use $$x + y$$ in math but `$lookup` in code';
+    const expected = 'Use $x + y$ in math but `$lookup` in code';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('normalizes inline bracket delimiters', () => {
+    const content = 'Claude-style inline math: \\(x^2 + y^2\\)';
+    const expected = 'Claude-style inline math: $x^2 + y^2$';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('normalizes block bracket delimiters', () => {
+    const content = 'ChatGPT-style block math:\\[x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}\\]';
+    const expected = 'ChatGPT-style block math:\n$$\nx = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}\n$$\n';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('does not normalize bracket delimiters inside code blocks', () => {
+    const content = '```\n\\(x^2\\)\n```\nOutside \\(y^2\\)';
+    const expected = '```\n\\(x^2\\)\n```\nOutside $y^2$';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('upgrades quotient integers to blackboard-bold notation', () => {
+    const content = 'Consider the quotient Z/6Z as a module.';
+    const expected = 'Consider the quotient ℤ/6ℤ as a module.';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('upgrades Z-modules to blackboard-bold notation', () => {
+    const content = 'Z-modules are the same as abelian groups.';
+    const expected = 'ℤ-modules are the same as abelian groups.';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('upgrades named number systems to blackboard-bold notation', () => {
+    const content = 'Integers Z sit inside reals R.';
+    const expected = 'Integers ℤ sit inside reals ℝ.';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('does not upgrade algebra notation inside code blocks', () => {
+    const content = '```\nZ/6Z\nZ-modules\n```\nOutside Z/6Z';
+    const expected = '```\nZ/6Z\nZ-modules\n```\nOutside ℤ/6ℤ';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('simplifies isolated inline number-system macros to unicode symbols', () => {
+    const content = 'Sets: $\\mathbb{Z}$, $\\mathbb{Q}$, $\\mathbb{R}$, $\\mathbb{C}$, $\\mathbb{N}$.';
+    const expected = 'Sets: ℤ, ℚ, ℝ, ℂ, ℕ.';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('simplifies simple inline quotient notation while preserving complex math', () => {
+    const content = 'Use $\\mathbb{Z}/6\\mathbb{Z}$, but keep $\\operatorname{Ann}_R(M)$ as math.';
+    const expected = 'Use ℤ/6ℤ, but keep $\\operatorname{Ann}_R(M)$ as math.';
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 

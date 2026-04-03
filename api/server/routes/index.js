@@ -20,6 +20,9 @@ const banner = require('./banner');
 const search = require('./search');
 const models = require('./models');
 const convos = require('./convos');
+const projects = require('./projects');
+const conversations = require('./conversations');
+const clarifications = require('./clarifications');
 const config = require('./config');
 const agents = require('./agents');
 const roles = require('./roles');
@@ -52,6 +55,9 @@ module.exports = {
   banner,
   agents,
   convos,
+  projects,
+  conversations,
+  clarifications,
   search,
   config,
   models,

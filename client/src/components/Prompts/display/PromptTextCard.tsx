@@ -88,7 +88,7 @@ const PromptTextCard = ({ mainText }: PromptTextCardProps) => {
             /** @ts-ignore */
             supersub,
             remarkGfm,
-            [remarkMath, { singleDollarTextMath: false }],
+            [remarkMath, { singleDollarTextMath: true }],
           ]}
           rehypePlugins={[
             /** @ts-ignore */

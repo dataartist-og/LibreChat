@@ -104,6 +104,22 @@ describe('encodeAndFormatDocuments - fileConfig integration', () => {
       updatedAt: new Date(),
     }) as unknown as IMongoFile;
 
+  const createMockRemoteFile = (mimeType: string, filename: string): IMongoFile =>
+    ({
+      _id: new Types.ObjectId(),
+      user: new Types.ObjectId(),
+      file_id: 'file_remote_123',
+      filename,
+      type: mimeType,
+      bytes: 1024,
+      object: 'file',
+      usage: 0,
+      source: 'openai',
+      filepath: 'http://127.0.0.1:10531/v1/files/file_remote_123',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }) as unknown as IMongoFile;
+
   describe('Configuration extraction and validation', () => {
     it('should pass configured file size limit to validatePdf for OpenAI', async () => {
       const configuredLimit = mbToBytes(15);
@@ -741,10 +757,34 @@ describe('encodeAndFormatDocuments - fileConfig integration', () => {
 
       expect(result.documents).toHaveLength(1);
       expect(result.documents[0]).toMatchObject({
-        type: 'input_file',
-        filename: 'test.pdf',
-        file_data: `data:application/pdf;base64,${mockContent}`,
+        type: 'file',
+        file: {
+          filename: 'test.pdf',
+          file_data: `data:application/pdf;base64,${mockContent}`,
+        },
       });
+    });
+
+    it('should prefer stored OpenAI file IDs over re-encoding content', async () => {
+      const req = createMockRequest(15) as ServerRequest;
+      const file = createMockRemoteFile('application/pdf', 'remote.pdf');
+
+      const result = await encodeAndFormatDocuments(
+        req,
+        [file],
+        { provider: Providers.OPENAI, useResponsesApi: true },
+        mockStrategyFunctions,
+      );
+
+      expect(mockedGetFileStream).not.toHaveBeenCalled();
+      expect(result.documents).toEqual([
+        {
+          type: 'file',
+          file: {
+            file_id: 'file_remote_123',
+          },
+        },
+      ]);
     });
   });
 });

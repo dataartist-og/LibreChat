@@ -1,6 +1,7 @@
 const { isUserProvided, isEnabled } = require('@librechat/api');
 const { EModelEndpoint } = require('librechat-data-provider');
 const { generateConfig } = require('~/server/utils/handleText');
+const OPENAI_TRANSPORT_MODE_ENV = 'LIBRECHAT_OPENAI_TRANSPORT_MODE';
 
 const {
   OPENAI_API_KEY: openAIApiKey,
@@ -17,6 +18,14 @@ const {
 
 const userProvidedOpenAI = isUserProvided(openAIApiKey);
 
+function getConfiguredOpenAIBaseURL() {
+  if (process.env[OPENAI_TRANSPORT_MODE_ENV] === 'official') {
+    return undefined;
+  }
+
+  return OPENAI_REVERSE_PROXY;
+}
+
 module.exports = {
   config: {
     googleKey,
@@ -26,7 +35,7 @@ module.exports = {
     [EModelEndpoint.anthropic]: generateConfig(
       anthropicApiKey || isEnabled(process.env.ANTHROPIC_USE_VERTEX),
     ),
-    [EModelEndpoint.openAI]: generateConfig(openAIApiKey, OPENAI_REVERSE_PROXY),
+    [EModelEndpoint.openAI]: generateConfig(openAIApiKey, getConfiguredOpenAIBaseURL()),
     [EModelEndpoint.azureOpenAI]: generateConfig(azureOpenAIApiKey, AZURE_OPENAI_BASEURL),
     [EModelEndpoint.assistants]: generateConfig(
       assistantsApiKey,

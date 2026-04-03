@@ -598,6 +598,7 @@ export const tMessageSchema = z.object({
   endpoint: z.string().optional(),
   clientId: z.string().nullable().optional(),
   conversationId: z.string().nullable(),
+  projectId: z.string().nullable().optional(),
   parentMessageId: z.string().nullable(),
   responseMessageId: z.string().nullable().optional(),
   overrideParentMessageId: z.string().nullable().optional(),
@@ -721,6 +722,7 @@ const DocumentType: z.ZodType<DocumentTypeValue> = z.lazy(() =>
 
 export const tConversationSchema = z.object({
   conversationId: z.string().nullable(),
+  projectId: z.string().nullable().optional(),
   endpoint: eModelEndpointSchema.nullable(),
   endpointType: eModelEndpointSchema.nullable().optional(),
   isArchived: z.boolean().optional(),
@@ -958,6 +960,78 @@ export type TConversation = z.infer<typeof tConversationSchema> & {
   disableParams?: boolean;
 };
 
+export const clarificationStatusSchema = z.enum(['active', 'collapsed', 'integrated', 'archived']);
+
+export type TClarificationStatus = z.infer<typeof clarificationStatusSchema>;
+
+export const tProjectSchema = z.object({
+  projectId: z.string(),
+  ownerUserId: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  archivedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TProject = z.infer<typeof tProjectSchema>;
+
+export const tProjectSourceSchema = z.object({
+  sourceId: z.string(),
+  projectId: z.string(),
+  ownerUserId: z.string(),
+  sourceType: z.enum(['file', 'url', 'note']),
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  fileId: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  noteBody: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TProjectSource = z.infer<typeof tProjectSourceSchema>;
+
+export const tClarificationSchema = z.object({
+  clarificationId: z.string(),
+  projectId: z.string(),
+  conversationId: z.string(),
+  parentMessageId: z.string(),
+  anchorStart: z.number(),
+  anchorEnd: z.number(),
+  anchorText: z.string(),
+  anchorContextBefore: z.string(),
+  anchorContextAfter: z.string(),
+  clarificationQuestion: z.string(),
+  clarificationAnswer: z.string(),
+  status: clarificationStatusSchema,
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  integratedAt: z.string().nullable().optional(),
+  integrationPatch: DocumentType.nullable().optional(),
+});
+
+export type TClarification = z.infer<typeof tClarificationSchema>;
+
+export const tMessageRevisionSchema = z.object({
+  revisionId: z.string(),
+  messageId: z.string(),
+  conversationId: z.string(),
+  projectId: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  reason: z.string(),
+  previousText: z.string(),
+  updatedText: z.string(),
+  metadata: DocumentType.optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TMessageRevision = z.infer<typeof tMessageRevisionSchema>;
+
 export const tSharedLinkSchema = z.object({
   conversationId: z.string(),
   shareId: z.string(),
@@ -983,6 +1057,7 @@ export const tConversationTagSchema = z.object({
 export type TConversationTag = z.infer<typeof tConversationTagSchema>;
 
 export const googleBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   modelLabel: true,
   promptPrefix: true,
@@ -1054,6 +1129,7 @@ export function removeNullishValues<T extends Record<string, unknown>>(
 }
 
 const assistantBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   assistant_id: true,
   instructions: true,
@@ -1089,6 +1165,7 @@ export const assistantSchema = assistantBaseSchema
   }));
 
 const compactAssistantBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   assistant_id: true,
   instructions: true,
@@ -1104,6 +1181,7 @@ export const compactAssistantSchema = compactAssistantBaseSchema
   .catch(() => ({}));
 
 export const agentsBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   modelLabel: true,
   temperature: true,
@@ -1157,6 +1235,7 @@ export const agentsSchema = agentsBaseSchema
   }));
 
 export const openAIBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   modelLabel: true,
   chatGptLabel: true,
@@ -1208,6 +1287,7 @@ export const compactGoogleSchema = googleBaseSchema
   .catch(() => ({}));
 
 export const anthropicBaseSchema = tConversationSchema.pick({
+  projectId: true,
   model: true,
   modelLabel: true,
   promptPrefix: true,
@@ -1248,6 +1328,7 @@ export const tBannerSchema = z.object({
 export type TBanner = z.infer<typeof tBannerSchema>;
 
 export const compactAgentsBaseSchema = tConversationSchema.pick({
+  projectId: true,
   spec: true,
   // model: true,
   iconURL: true,

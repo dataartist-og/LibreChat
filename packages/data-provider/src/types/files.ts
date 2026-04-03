@@ -97,6 +97,7 @@ export type TFile = {
   _id?: string;
   __v?: number;
   user: string;
+  projectId?: string;
   conversationId?: string;
   message?: string;
   file_id: string;

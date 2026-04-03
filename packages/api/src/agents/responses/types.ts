@@ -56,8 +56,13 @@ export interface InputImageContent {
 
 /** File input content */
 export interface InputFileContent {
-  type: 'input_file';
-  file_id?: string;
+  type: 'file' | 'input_file';
+  file?: {
+    file_id?: string | null;
+    file_data?: string;
+    filename?: string;
+  };
+  file_id?: string | null;
   file_data?: string;
   filename?: string;
 }

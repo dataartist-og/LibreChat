@@ -123,7 +123,7 @@ const PromptEditor: React.FC<Props> = ({ name, isEditing, setIsEditing }) => {
                       /** @ts-ignore */
                       supersub,
                       remarkGfm,
-                      [remarkMath, { singleDollarTextMath: false }],
+                      [remarkMath, { singleDollarTextMath: true }],
                     ]}
                     /** @ts-ignore */
                     rehypePlugins={rehypePlugins}

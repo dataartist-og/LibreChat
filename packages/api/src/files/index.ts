@@ -5,6 +5,8 @@ export * from './documents/crud';
 export * from './encode';
 export * from './filter';
 export * from './mistral/crud';
+export * from './native';
+export * from './openai';
 export * from './ocr';
 export * from './parse';
 export * from './rag';

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { Constants, EModelEndpoint, getEndpointFileConfig } from 'librechat-data-provider';
+import { Constants, EModelEndpoint, EToolResources, getEndpointFileConfig } from 'librechat-data-provider';
 
 beforeAll(() => {
   global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
@@ -30,10 +30,12 @@ jest.mock('@librechat/client', () => ({
 jest.mock('recoil', () => ({
   ...jest.requireActual('recoil'),
   useSetRecoilState: jest.fn(() => jest.fn()),
+  useRecoilValue: jest.fn(() => null),
 }));
 
 jest.mock('~/store', () => ({
   ephemeralAgentByConvoId: jest.fn(() => ({ key: 'mock' })),
+  activeProjectId: { key: 'activeProjectId' },
 }));
 
 jest.mock('@tanstack/react-query', () => ({
@@ -45,6 +47,7 @@ jest.mock('@tanstack/react-query', () => ({
 
 jest.mock('~/data-provider', () => ({
   useGetFileConfig: jest.fn(() => ({ data: null })),
+  useGetStartupConfig: jest.fn(() => ({ data: null })),
   useUploadFileMutation: jest.fn((_opts: Record<string, unknown>) => ({
     mutate: mockMutate,
   })),
@@ -99,11 +102,68 @@ describe('useFileHandling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConversation = {};
+    const mockUseGetStartupConfig = jest.requireMock('~/data-provider').useGetStartupConfig;
+    mockUseGetStartupConfig.mockReturnValue({ data: null });
   });
 
   const loadHook = async () => (await import('../useFileHandling')).default;
 
   describe('endpointOverride', () => {
+    it('defaults supported document uploads to context for non-assistants chats', async () => {
+      mockConversation = {
+        conversationId: 'convo-1',
+        endpoint: 'openAI',
+        endpointType: 'openAI',
+      };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+
+      const pdfFile = new File(['%PDF-1.7'], 'paper.pdf', { type: 'application/pdf' });
+
+      await act(async () => {
+        await result.current.handleFiles([pdfFile]);
+      });
+
+      expect(mockValidateFiles).toHaveBeenCalledTimes(1);
+      const validateCall = mockValidateFiles.mock.calls[0][0];
+      expect(validateCall.toolResource).toBe(EToolResources.context);
+
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBe(EToolResources.context);
+    });
+
+    it('does not default openai document uploads to context when native uploads are enabled', async () => {
+      const mockUseGetStartupConfig = jest.requireMock('~/data-provider').useGetStartupConfig;
+      mockUseGetStartupConfig.mockReturnValue({
+        data: { openAINativeFileUploadsEnabled: true },
+      });
+
+      mockConversation = {
+        conversationId: 'convo-1',
+        endpoint: 'openAI',
+        endpointType: 'openAI',
+      };
+
+      const useFileHandling = await loadHook();
+      const { result } = renderHook(() => useFileHandling());
+
+      const pdfFile = new File(['%PDF-1.7'], 'paper.pdf', { type: 'application/pdf' });
+
+      await act(async () => {
+        await result.current.handleFiles([pdfFile]);
+      });
+
+      expect(mockValidateFiles).toHaveBeenCalledTimes(1);
+      const validateCall = mockValidateFiles.mock.calls[0][0];
+      expect(validateCall.toolResource).toBeUndefined();
+
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+      const formData: FormData = mockMutate.mock.calls[0][0];
+      expect(formData.get('tool_resource')).toBeNull();
+    });
+
     it('uses conversation endpoint when no override is provided', async () => {
       mockConversation = {
         conversationId: 'convo-1',

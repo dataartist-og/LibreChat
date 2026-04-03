@@ -114,13 +114,13 @@ describe('convertInputToMessages', () => {
     ]);
   });
 
-  // ── input_file content blocks ──────────────────────────────────────
-  it('converts input_file blocks to text placeholders', () => {
+  // ── file content blocks ────────────────────────────────────────────
+  it('converts file blocks to text placeholders', () => {
     const input: InputItem[] = [
       {
         type: 'message',
         role: 'user',
-        content: [{ type: 'input_file', filename: 'report.pdf', file_id: 'f_123' }],
+        content: [{ type: 'file', file: { filename: 'report.pdf', file_id: 'f_123' } }],
       },
     ];
     const result = convertInputToMessages(input);
@@ -129,17 +129,31 @@ describe('convertInputToMessages', () => {
     ]);
   });
 
-  it('uses "unknown" for input_file without filename', () => {
+  it('uses "unknown" for file without filename', () => {
     const input: InputItem[] = [
       {
         type: 'message',
         role: 'user',
-        content: [{ type: 'input_file', file_id: 'f_123' }],
+        content: [{ type: 'file', file: { file_id: 'f_123' } }],
       },
     ];
     const result = convertInputToMessages(input);
     expect(result).toEqual([
       { role: 'user', content: [{ type: 'text', text: '[File: unknown]' }] },
+    ]);
+  });
+
+  it('still converts legacy input_file blocks to text placeholders', () => {
+    const input: InputItem[] = [
+      {
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_file', filename: 'legacy.pdf', file_id: 'f_123' }],
+      },
+    ];
+    const result = convertInputToMessages(input);
+    expect(result).toEqual([
+      { role: 'user', content: [{ type: 'text', text: '[File: legacy.pdf]' }] },
     ]);
   });
 

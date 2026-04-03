@@ -4,13 +4,13 @@ import { DelayedRender } from '@librechat/client';
 import type { TMessage } from 'librechat-data-provider';
 import type { TMessageContentProps, TDisplayProps } from '~/common';
 import Error from '~/components/Messages/Content/Error';
+import { AnnotatedAssistantMessage } from '~/components/Clarifications';
 import { useMessageContext } from '~/Providers';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
 import Thinking from './Parts/Thinking';
 import { useLocalize } from '~/hooks';
 import Container from './Container';
-import Markdown from './Markdown';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -102,7 +102,13 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
 
   const content = useMemo(() => {
     if (!isCreatedByUser) {
-      return <Markdown content={text} isLatestMessage={isLatestMessage} />;
+      return (
+        <AnnotatedAssistantMessage
+          message={message as TMessage}
+          content={text}
+          isLatestMessage={isLatestMessage}
+        />
+      );
     }
     if (enableUserMsgMarkdown) {
       return <MarkdownLite content={text} />;

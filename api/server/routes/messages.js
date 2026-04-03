@@ -10,6 +10,16 @@ const db = require('~/models');
 const router = express.Router();
 router.use(requireJwtAuth);
 
+router.get('/:messageId/revisions', async (req, res) => {
+  try {
+    const revisions = await db.listMessageRevisions(req.user.id, req.params.messageId);
+    res.status(200).json(revisions);
+  } catch (error) {
+    logger.error('Error fetching message revisions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const user = req.user.id ?? '';

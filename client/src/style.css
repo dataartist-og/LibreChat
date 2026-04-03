@@ -2573,7 +2573,11 @@ html {
 
 .message-content {
   font-size: var(--markdown-font-size, var(--font-size-base));
-  line-height: 1.4;
+  line-height: 1.58;
+  letter-spacing: -0.01em;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 .message-content pre code {
@@ -2847,6 +2851,54 @@ html {
   overflow: visible !important;
   height: auto !important;
   max-height: none !important;
+  margin: 1rem 0 1.125rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  white-space: normal;
+}
+
+.message-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 1rem 0 1.1rem;
+  padding: 0.2rem 0 0.3rem;
+}
+
+.message-content .katex {
+  font-size: 1.12em;
+  line-height: 1.28;
+  color: inherit;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  vertical-align: -0.04em;
+}
+
+.message-content .katex .mathbb,
+.message-content .katex .amsrm {
+  font-size: 1.08em;
+  letter-spacing: 0.015em;
+}
+
+.message-content .katex-display > .katex {
+  min-width: max-content;
+  white-space: nowrap;
+  font-size: 1.18em;
+}
+
+@media (min-width: 1024px) {
+  .message-content {
+    font-size: max(var(--markdown-font-size, var(--font-size-base)), 1.03rem);
+  }
+
+  .message-content .katex {
+    font-size: 1.15em;
+  }
+
+  .message-content .katex-display > .katex {
+    font-size: 1.22em;
+  }
 }
 
 /** AnimatedSearchInput style */

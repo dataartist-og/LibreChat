@@ -14,6 +14,20 @@ import type {
 } from '~/types';
 import { validatePdf, validateBedrockDocument } from '~/files/validation';
 import { getFileStream, getConfiguredFileSizeLimit } from './utils';
+import { isDocumentInputMimeType, isRemoteOpenAIFile } from '../native';
+
+function canUseOpenAIFileId(provider: Providers): boolean {
+  return provider === Providers.OPENAI || provider === Providers.AZURE;
+}
+
+function createRemoteOpenAIBlock(file: IMongoFile): DocumentResult['documents'][number] {
+  return {
+    type: 'file',
+    file: {
+      file_id: file.file_id,
+    },
+  };
+}
 
 /**
  * Processes and encodes document files for various providers
@@ -47,7 +61,7 @@ export async function encodeAndFormatDocuments(
     if (isBedrock && isBedrockDocumentType(file.type)) {
       return true;
     }
-    return file.type === 'application/pdf' || file.type?.startsWith('application/');
+    return isDocumentInputMimeType(file.type);
   });
 
   if (!documentFiles.length) {
@@ -56,9 +70,22 @@ export async function encodeAndFormatDocuments(
 
   const results = await Promise.allSettled(
     documentFiles.map((file) => {
-      const isProcessable = isBedrock
-        ? isBedrockDocumentType(file.type)
-        : file.type === 'application/pdf' && isDocSupported;
+      if (isRemoteOpenAIFile(file.source)) {
+        return Promise.resolve({
+          file,
+          content: '',
+          metadata: {
+            file_id: file.file_id,
+            temp_file_id: file.temp_file_id,
+            filepath: file.filepath,
+            source: file.source,
+            filename: file.filename,
+            type: file.type,
+          },
+        });
+      }
+
+      const isProcessable = isBedrock ? isBedrockDocumentType(file.type) : isDocSupported;
       if (!isProcessable) {
         return Promise.resolve(null);
       }
@@ -76,6 +103,14 @@ export async function encodeAndFormatDocuments(
     if (!processed) continue;
 
     const { file, content, metadata } = processed;
+
+    if (isRemoteOpenAIFile(file.source)) {
+      if (canUseOpenAIFileId(provider)) {
+        result.documents.push(createRemoteOpenAIBlock(file));
+      }
+      result.files.push(metadata);
+      continue;
+    }
 
     if (!content || !file) {
       if (metadata) result.files.push(metadata);
@@ -115,22 +150,24 @@ export async function encodeAndFormatDocuments(
         },
       });
       result.files.push(metadata);
-    } else if (file.type === 'application/pdf' && isDocSupported) {
+    } else if (isDocSupported && isDocumentInputMimeType(file.type)) {
       const pdfBuffer = Buffer.from(content, 'base64');
 
-      const validation = await validatePdf(
-        pdfBuffer,
-        pdfBuffer.length,
-        provider,
-        configuredFileSizeLimit,
-        model,
-      );
+      if (file.type === 'application/pdf') {
+        const validation = await validatePdf(
+          pdfBuffer,
+          pdfBuffer.length,
+          provider,
+          configuredFileSizeLimit,
+          model,
+        );
 
-      if (!validation.isValid) {
-        throw new Error(`PDF validation failed: ${validation.error}`);
+        if (!validation.isValid) {
+          throw new Error(`PDF validation failed: ${validation.error}`);
+        }
       }
 
-      if (provider === Providers.ANTHROPIC) {
+      if (provider === Providers.ANTHROPIC && file.type === 'application/pdf') {
         const document: AnthropicDocumentBlock = {
           type: 'document',
           source: {
@@ -148,22 +185,24 @@ export async function encodeAndFormatDocuments(
         result.documents.push(document);
       } else if (useResponsesApi) {
         result.documents.push({
-          type: 'input_file',
-          filename: file.filename,
-          file_data: `data:application/pdf;base64,${content}`,
+          type: 'file',
+          file: {
+            filename: file.filename,
+            file_data: `data:${mimeType};base64,${content}`,
+          },
         });
       } else if (provider === Providers.GOOGLE || provider === Providers.VERTEXAI) {
         result.documents.push({
           type: 'media',
-          mimeType: 'application/pdf',
+          mimeType,
           data: content,
         });
-      } else if (isOpenAILikeProvider(provider) && provider != Providers.AZURE) {
+      } else if (isOpenAILikeProvider(provider)) {
         result.documents.push({
           type: 'file',
           file: {
             filename: file.filename,
-            file_data: `data:application/pdf;base64,${content}`,
+            file_data: `data:${mimeType};base64,${content}`,
           },
         });
       }

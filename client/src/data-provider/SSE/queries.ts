@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiBaseUrl, QueryKeys, request, dataService } from 'librechat-data-provider';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import type { Agents, TConversation } from 'librechat-data-provider';
-import { updateConvoInAllQueries } from '~/utils';
+import { isNotFoundError, updateConvoInAllQueries } from '~/utils';
 
 export interface StreamStatusResponse {
   active: boolean;
@@ -99,7 +99,16 @@ export function useTitleGeneration(enabled = true) {
   const titleQueries = useQueries({
     queries: readyToFetch.map((conversationId) => ({
       queryKey: genTitleQueryKey(conversationId),
-      queryFn: () => dataService.genTitle({ conversationId }),
+      queryFn: async () => {
+        try {
+          return await dataService.genTitle({ conversationId });
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            return null;
+          }
+          throw error;
+        }
+      },
       staleTime: Infinity,
       retry: false,
     })),
@@ -110,8 +119,14 @@ export function useTitleGeneration(enabled = true) {
       const conversationId = readyToFetch[index];
       if (!conversationId || processedTitles.has(conversationId)) return;
 
-      if (titleQuery.isSuccess && titleQuery.data) {
-        const { title } = titleQuery.data;
+      if (titleQuery.isSuccess) {
+        const title = titleQuery.data?.title;
+        if (!title) {
+          processedTitles.add(conversationId);
+          titleQueue.delete(conversationId);
+          setReadyToFetch((prev) => prev.filter((id) => id !== conversationId));
+          return;
+        }
         queryClient.setQueryData(
           [QueryKeys.conversation, conversationId],
           (convo: TConversation | undefined) => (convo ? { ...convo, title } : convo),

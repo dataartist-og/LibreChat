@@ -1,0 +1,12 @@
+services:
+  mongodb:
+    ports:
+      - "27018:27017"
+
+  meilisearch:
+    ports:
+      - "7700:7700"
+
+  rag_api:
+    ports:
+      - "${RAG_PORT:-8000}:${RAG_PORT:-8000}"

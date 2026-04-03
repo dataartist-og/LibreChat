@@ -47,6 +47,8 @@ const useNewConvo = (index = 0) => {
   const { data: startupConfig } = useGetStartupConfig();
   const applyModelSpecEffects = useApplyModelSpecEffects();
   const clearAllConversations = store.useClearConvoState();
+  const activeProjectId = useRecoilValue(store.activeProjectId);
+  const setActiveProjectId = useSetRecoilState(store.activeProjectId);
   const defaultPreset = useRecoilValue(store.defaultPreset);
   const { setConversation } = store.useSetConversationAtom(index);
   const [files, setFiles] = useRecoilState(store.filesByIndex(index));
@@ -209,6 +211,9 @@ const useNewConvo = (index = 0) => {
         if (!(keepAddedConvos ?? false)) {
           clearAllConversations(true);
         }
+        if (conversation.projectId) {
+          setActiveProjectId(conversation.projectId);
+        }
         const isCancelled = conversation.conversationId?.startsWith('_');
         if (isCancelled) {
           logger.log(
@@ -252,7 +257,14 @@ const useNewConvo = (index = 0) => {
           state: disableFocus ? {} : { focusChat: true },
         });
       },
-    [endpointsConfig, defaultPreset, assistantsListMap, modelsQuery.data, hasAgentAccess],
+    [
+      endpointsConfig,
+      defaultPreset,
+      assistantsListMap,
+      modelsQuery.data,
+      hasAgentAccess,
+      setActiveProjectId,
+    ],
   );
 
   const newConversation = useCallback(
@@ -293,6 +305,7 @@ const useNewConvo = (index = 0) => {
         conversationId: Constants.NEW_CONVO as string,
         title: 'New Chat',
         endpoint: null,
+        projectId: activeProjectId ?? undefined,
         ...template,
         createdAt: '',
         updatedAt: '',
@@ -365,6 +378,7 @@ const useNewConvo = (index = 0) => {
       pauseGlobalAudio,
       switchToConversation,
       applyModelSpecEffects,
+      activeProjectId,
     ],
   );
 

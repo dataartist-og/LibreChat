@@ -19,6 +19,7 @@ import {
   logAxiosError,
   inputSchema,
 } from '~/utils';
+import { getConfiguredOpenAIBaseURL } from '~/files/native';
 import { standardCache } from '~/cache';
 
 export interface FetchModelsParams {
@@ -245,7 +246,7 @@ export async function fetchOpenAIModels(
   const apiKey = opts.openAIApiKey ?? process.env.OPENAI_API_KEY;
   const openaiBaseURL = 'https://api.openai.com/v1';
   let baseURL = openaiBaseURL;
-  let reverseProxyUrl = process.env.OPENAI_REVERSE_PROXY;
+  let reverseProxyUrl = getConfiguredOpenAIBaseURL();
 
   if (opts.assistants && process.env.ASSISTANTS_BASE_URL) {
     reverseProxyUrl = process.env.ASSISTANTS_BASE_URL;

@@ -6,6 +6,7 @@ import { agentSchema, createMethods } from '@librechat/data-schemas';
 import type { AgentModelParameters } from 'librechat-data-provider';
 import type { LoadAgentParams, LoadAgentDeps } from '../load';
 import { loadAgent } from '../load';
+import { appendMathFormattingInstructions } from '../math';
 
 let Agent: mongoose.Model<unknown>;
 let createAgent: ReturnType<typeof createMethods>['createAgent'];
@@ -109,7 +110,7 @@ describe('loadAgent', () => {
     if (result) {
       // Ephemeral agent ID is encoded with endpoint and model
       expect(result.id).toBe('openai__gpt-4');
-      expect(result.instructions).toBe('Test instructions');
+      expect(result.instructions).toBe(appendMathFormattingInstructions('Test instructions'));
       expect(result.provider).toBe('openai');
       expect(result.model).toBe('gpt-4');
       expect(result.model_parameters.temperature).toBe(0.7);
@@ -227,7 +228,7 @@ describe('loadAgent', () => {
 
     if (result) {
       expect(result.tools).toEqual([]);
-      expect(result.instructions).toBe('Simple instructions');
+      expect(result.instructions).toBe(appendMathFormattingInstructions('Simple instructions'));
     } else {
       expect(result).toBeFalsy();
     }
@@ -255,9 +256,34 @@ describe('loadAgent', () => {
 
     if (result) {
       expect(result.tools).toEqual([]);
+      expect(result.instructions).toBe(appendMathFormattingInstructions('Basic instructions'));
     } else {
       expect(result).toBeFalsy();
     }
+  });
+
+  test('should avoid duplicating math formatting guidance', async () => {
+    const { EPHEMERAL_AGENT_ID } = Constants;
+    const promptPrefix = appendMathFormattingInstructions('Custom instructions') ?? '';
+
+    const mockReq = {
+      user: { id: 'user123' },
+      body: {
+        promptPrefix,
+      },
+    };
+
+    const result = await loadAgent(
+      {
+        req: mockReq,
+        agent_id: EPHEMERAL_AGENT_ID as string,
+        endpoint: 'openai',
+        model_parameters: { model: 'gpt-4' } as unknown as AgentModelParameters,
+      },
+      deps,
+    );
+
+    expect(result?.instructions).toBe(promptPrefix);
   });
 
   describe('Edge Cases', () => {
