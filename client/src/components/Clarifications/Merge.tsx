@@ -3,6 +3,7 @@ import { OGDialog, OGDialogTitle, OGDialogHeader, OGDialogContent } from '@libre
 import type { TClarification } from 'librechat-data-provider';
 import { useIntegrateClarificationMutation } from '~/data-provider';
 import { useLocalize } from '~/hooks';
+import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 
 type MergeModalProps = {
   open: boolean;
@@ -39,6 +40,8 @@ export default function MergeModal({
 }: MergeModalProps) {
   const localize = useLocalize();
   const integrateMutation = useIntegrateClarificationMutation();
+  const markdownClasses =
+    'markdown prose prose-sm message-content w-full break-words text-text-primary dark:prose-invert dark:text-gray-100';
   const suggestedText = useMemo(
     () => buildMergedText(parentText, clarification),
     [clarification, parentText],
@@ -75,16 +78,16 @@ export default function MergeModal({
             <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
               {localize('com_ui_original_excerpt')}
             </div>
-            <div className="whitespace-pre-wrap text-sm text-text-primary">
-              {clarification.anchorText}
+            <div className={markdownClasses}>
+              <MarkdownLite content={clarification.anchorText} codeExecution={false} />
             </div>
           </div>
           <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-3">
             <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
               {localize('com_ui_clarification_answer')}
             </div>
-            <div className="whitespace-pre-wrap text-sm text-text-primary">
-              {clarification.clarificationAnswer}
+            <div className={markdownClasses}>
+              <MarkdownLite content={clarification.clarificationAnswer} codeExecution={false} />
             </div>
           </div>
           <div>

@@ -1,6 +1,7 @@
 import type { IMessage, IProjectSource } from '@librechat/data-schemas';
 import { parseTextParts } from 'librechat-data-provider';
 import type { TMessageContentParts } from 'librechat-data-provider';
+import { appendMathFormattingInstructions } from '~/agents/math';
 
 type ProjectFileSnippet = {
   title: string;
@@ -68,10 +69,10 @@ function buildSourceContext(sources: IProjectSource[], files: ProjectFileSnippet
 export function buildClarificationMessages(input: PromptInput) {
   const conversationContext = buildConversationContext(input.recentMessages);
   const sourceContext = buildSourceContext(input.projectSources, input.projectFiles);
-  const systemContent =
+  const systemContent = appendMathFormattingInstructions(
     'You are answering an inline clarification for a specific span of an existing assistant response. ' +
-    'Answer the local confusion point directly, preserve the parent explanation terminology, avoid restating the entire topic unless needed, and stay concise unless the question explicitly asks for depth. ' +
-    'When mathematical notation is relevant, use standard LaTeX-compatible formatting with \\(...\\) for inline math and \\[...\\] for display math, and prefer proper notation such as \\mathbb{Z} or \\mathbb{R} over ASCII stand-ins.';
+      'Answer the local confusion point directly, preserve the parent explanation terminology, avoid restating the entire topic unless needed, and stay concise unless the question explicitly asks for depth.',
+  );
 
   return [
     {

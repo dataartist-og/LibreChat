@@ -2,6 +2,8 @@ const MATH_GUIDANCE_SENTINEL = 'When mathematical notation materially improves c
 
 const MATH_FORMATTING_GUIDANCE =
   'When mathematical notation materially improves clarity, format it with standard LaTeX-compatible notation. ' +
+  'NOTE: I want to see beautiful math rendering. Always, always focus on formatting your output so that the rendering is as clear as possible. ' +
+  'Prioritize beautiful math rendering and always focus on formatting the output so the rendered result is as clear, polished, and paper-like as possible. ' +
   'Use \\(...\\) for inline math and \\[...\\] for display math. ' +
   'Use \\mathbb{Z}, \\mathbb{Q}, \\mathbb{R}, \\mathbb{C}, and \\mathbb{N} for the standard number systems; ' +
   'render symbolic objects such as R, M, V, T, p(x), x_i, and maps like f: V \\to W in math mode instead of plain ASCII prose when they are mathematical objects. ' +

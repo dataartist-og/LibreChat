@@ -7,6 +7,7 @@ import ClarificationBlock from '../Block';
 const mockUpdateClarification = jest.fn();
 const mockReanchorClarification = jest.fn();
 const mockIntegrateClarification = jest.fn();
+const mockMarkdownLite = jest.fn();
 
 jest.mock('~/hooks', () => ({
   useLocalize: () => (key: string) => key,
@@ -33,6 +34,14 @@ jest.mock('~/data-provider', () => ({
   useMessageRevisionsQuery: () => ({
     data: [],
   }),
+}));
+
+jest.mock('~/components/Chat/Messages/Content/MarkdownLite', () => ({
+  __esModule: true,
+  default: ({ content }: { content: string }) => {
+    mockMarkdownLite(content);
+    return <div>{content}</div>;
+  },
 }));
 
 const clarification: TClarification = {
@@ -78,6 +87,24 @@ describe('ClarificationBlock', () => {
         }),
       );
     });
+  });
+
+  it('renders the clarification answer through the markdown renderer', () => {
+    render(
+      <ClarificationBlock
+        clarification={{ ...clarification, status: 'active' }}
+        parentText="Cells use energy to function."
+        conversationId="conversation-1"
+        parentMessageId="message-1"
+      />,
+    );
+
+    expect(mockMarkdownLite).toHaveBeenCalledWith(
+      'Cells mostly rely on ATP as the immediate usable energy currency.',
+    );
+    expect(
+      screen.getByText('Cells mostly rely on ATP as the immediate usable energy currency.'),
+    ).toBeInTheDocument();
   });
 
   it('opens the integration modal and saves merged parent content', async () => {

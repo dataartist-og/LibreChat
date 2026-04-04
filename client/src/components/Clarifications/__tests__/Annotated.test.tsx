@@ -39,10 +39,31 @@ jest.mock('~/data-provider', () => ({
 
 jest.mock('~/components/Chat/Messages/Content/Markdown', () => ({
   __esModule: true,
-  default: ({ content }: { content: string }) => <div>{content}</div>,
+  default: ({ content }: { content?: string }) => {
+    const normalizedContent = typeof content === 'string' ? content : '';
+    const blocks = normalizedContent.split(/\n{2,}/).filter(Boolean);
+    return (
+      <div>
+        {blocks.map((block, blockIndex) => {
+          const lines = block.split('\n').filter(Boolean);
+          if (lines.every((line) => line.startsWith('- '))) {
+            return (
+              <ul key={`list-${blockIndex}`}>
+                {lines.map((line, lineIndex) => (
+                  <li key={`item-${lineIndex}`}>{line.slice(2)}</li>
+                ))}
+              </ul>
+            );
+          }
+
+          return <p key={`paragraph-${blockIndex}`}>{block}</p>;
+        })}
+      </div>
+    );
+  },
 }));
 
-const message: TMessage = {
+const baseMessage: TMessage = {
   messageId: 'message-1',
   conversationId: 'conversation-1',
   sender: 'Assistant',
@@ -51,10 +72,15 @@ const message: TMessage = {
   isCreatedByUser: false,
 };
 
-function renderAnnotated(clarifications: TClarification[] = []) {
+function renderAnnotated(content = baseMessage.text ?? '', clarifications: TClarification[] = []) {
   mockClarificationsQuery.mockReturnValue({
     data: clarifications,
   });
+
+  const message = {
+    ...baseMessage,
+    text: content,
+  };
 
   return render(
     <RecoilRoot
@@ -85,6 +111,11 @@ function renderAnnotatedWithoutClarifications() {
   mockClarificationsQuery.mockReturnValue({
     data: undefined,
   });
+
+  const message = {
+    ...baseMessage,
+    text: baseMessage.text ?? '',
+  };
 
   return render(
     <RecoilRoot
@@ -117,7 +148,7 @@ describe('AnnotatedAssistantMessage', () => {
   });
 
   it('renders inline clarifications anchored to the message body', async () => {
-    renderAnnotated([
+    renderAnnotated(baseMessage.text ?? '', [
       {
         clarificationId: 'clarification-1',
         projectId: 'project-1',
@@ -273,5 +304,31 @@ describe('AnnotatedAssistantMessage', () => {
     ).toBe(false);
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('renders the same clarification under each touched list item for multi-element selections', async () => {
+    renderAnnotated('- Alpha\n- Beta', [
+      {
+        clarificationId: 'clarification-2',
+        projectId: 'project-1',
+        conversationId: 'conversation-1',
+        parentMessageId: 'message-1',
+        anchorStart: 0,
+        anchorEnd: 'AlphaBeta'.length,
+        anchorText: 'AlphaBeta',
+        anchorContextBefore: '',
+        anchorContextAfter: '',
+        clarificationQuestion: 'How do these fit together?',
+        clarificationAnswer: 'Treat the two list items as one grouped clarification span.',
+        status: 'active',
+        createdByUserId: 'user-1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('How do these fit together?')).toHaveLength(2);
+    });
   });
 });

@@ -170,6 +170,35 @@ describe('loadAgent', () => {
     expect(result!.version).toBe(1);
   });
 
+  test('should append math formatting guidance to persistent agent instructions', async () => {
+    const userId = new mongoose.Types.ObjectId();
+    const agentId = `agent_${uuidv4()}`;
+
+    await createAgent({
+      id: agentId,
+      name: 'Math Agent',
+      provider: 'openai',
+      model: 'gpt-4',
+      author: userId,
+      instructions: 'Explain algebra clearly.',
+    });
+
+    const mockReq = { user: { id: userId.toString() } };
+    const result = await loadAgent(
+      {
+        req: mockReq,
+        agent_id: agentId,
+        endpoint: 'openai',
+        model_parameters: { model: 'gpt-4' } as unknown as AgentModelParameters,
+      },
+      deps,
+    );
+
+    expect(result?.instructions).toBe(
+      appendMathFormattingInstructions('Explain algebra clearly.'),
+    );
+  });
+
   test('should return agent even when user is not author (permissions checked at route level)', async () => {
     const authorId = new mongoose.Types.ObjectId();
     const userId = new mongoose.Types.ObjectId();

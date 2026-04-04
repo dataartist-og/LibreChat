@@ -1,9 +1,18 @@
 import { memo, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, RotateCcw, Link2, Trash2, GitMerge } from 'lucide-react';
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  GitMerge,
+  LocateFixed,
+  Pencil,
+  RotateCcw,
+} from 'lucide-react';
 import type { TClarification } from 'librechat-data-provider';
 import { useMessageRevisionsQuery, useReanchorClarificationMutation, useUpdateClarificationMutation } from '~/data-provider';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
+import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 import MergeModal from './Merge';
 
 type ClarificationBlockProps = {
@@ -96,6 +105,10 @@ function ClarificationBlock({
   };
 
   const isCollapsed = clarification.status === 'collapsed';
+  const markdownClasses =
+    'markdown prose prose-sm message-content w-full break-words text-text-primary dark:prose-invert dark:text-gray-100';
+  const actionButtonClasses =
+    'rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary';
 
   return (
     <>
@@ -131,43 +144,48 @@ function ClarificationBlock({
           <div className="flex flex-wrap items-center justify-end gap-1">
             <button
               type="button"
-              className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className={actionButtonClasses}
               aria-label={localize('com_ui_edit_question')}
+              title={localize('com_ui_edit_question')}
               onClick={() => setIsEditingQuestion((prev) => !prev)}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className={actionButtonClasses}
               aria-label={localize('com_ui_regenerate')}
+              title={localize('com_ui_regenerate')}
               onClick={handleRegenerate}
             >
               <RotateCcw className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className={actionButtonClasses}
               aria-label={localize('com_ui_reanchor')}
+              title={localize('com_ui_reanchor')}
               onClick={handleReanchor}
             >
-              <Link2 className="h-4 w-4" />
+              <LocateFixed className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className={actionButtonClasses}
               aria-label={localize('com_ui_integrate_into_parent')}
+              title={localize('com_ui_integrate_into_parent')}
               onClick={() => setMergeOpen(true)}
             >
               <GitMerge className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="rounded-md p-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className={actionButtonClasses}
               aria-label={localize('com_ui_archive')}
+              title={localize('com_ui_archive')}
               onClick={handleArchive}
             >
-              <Trash2 className="h-4 w-4" />
+              <Archive className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -227,8 +245,8 @@ function ClarificationBlock({
                   </div>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap break-words text-sm text-text-primary">
-                  {clarification.clarificationAnswer}
+                <div className={markdownClasses}>
+                  <MarkdownLite content={clarification.clarificationAnswer} codeExecution={false} />
                 </div>
               )}
             </div>

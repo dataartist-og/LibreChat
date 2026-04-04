@@ -39,7 +39,7 @@ type ClarificationGroup = {
 };
 
 type SlotState = {
-  key: string;
+  slotId: string;
   container: HTMLDivElement;
   group: ClarificationGroup;
 };
@@ -377,6 +377,12 @@ function buildClarificationGroups(
   };
 }
 
+function getFragmentsForGroup(root: HTMLElement, key: string): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-anchor-keys]')).filter((element) =>
+    element.dataset.anchorKeys?.split(',').includes(key),
+  );
+}
+
 function applyAnnotations(root: HTMLElement, groups: ClarificationGroup[]): SlotState[] {
   const nodes = getTextNodes(root);
   let globalStart = 0;
@@ -450,27 +456,35 @@ function applyAnnotations(root: HTMLElement, groups: ClarificationGroup[]): Slot
   const lastInsertedByBlock = new Map<Element, Element>();
 
   groups.forEach((group) => {
-    const fragment = Array.from(root.querySelectorAll<HTMLElement>('[data-anchor-keys]')).find(
-      (element) => element.dataset.anchorKeys?.split(',').includes(group.key),
-    );
-
-    if (!fragment) {
+    const fragments = getFragmentsForGroup(root, group.key);
+    if (fragments.length === 0) {
       return;
     }
 
-    const block = fragment.closest(blockSelector) ?? fragment.parentElement;
-    if (!block || !block.parentElement) {
-      return;
-    }
+    const blocks = fragments.reduce<Element[]>((acc, fragment) => {
+      const block = fragment.closest(blockSelector) ?? fragment.parentElement;
+      if (!block || !block.parentElement || acc.includes(block)) {
+        return acc;
+      }
 
-    const slot = document.createElement('div');
-    slot.dataset.inlineClarificationSlot = group.key;
-    slot.className = 'ml-4 mt-2';
+      acc.push(block);
+      return acc;
+    }, []);
 
-    const anchor = lastInsertedByBlock.get(block) ?? block;
-    anchor.parentElement.insertBefore(slot, anchor.nextSibling);
-    lastInsertedByBlock.set(block, slot);
-    slots.push({ key: group.key, container: slot, group });
+    blocks.forEach((block, index) => {
+      const slot = document.createElement('div');
+      slot.dataset.inlineClarificationSlot = `${group.key}:${index}`;
+      slot.className = 'ml-4 mt-2';
+
+      const anchor = lastInsertedByBlock.get(block) ?? block;
+      anchor.parentElement?.insertBefore(slot, anchor.nextSibling);
+      lastInsertedByBlock.set(block, slot);
+      slots.push({
+        slotId: `${group.key}:${index}`,
+        container: slot,
+        group,
+      });
+    });
   });
 
   return slots;
@@ -764,7 +778,7 @@ function AnnotatedAssistantMessage({
       {slots.map((slot) =>
         createPortal(
           <ClarificationThread
-            key={slot.key}
+            key={slot.slotId}
             group={slot.group}
             parentText={content}
             conversationId={conversationId ?? ''}

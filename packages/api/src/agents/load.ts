@@ -159,5 +159,6 @@ export async function loadAgent(
   // Set version count from versions array length
   const agentWithVersion = agent as Agent & { versions?: unknown[]; version?: number };
   agentWithVersion.version = agentWithVersion.versions ? agentWithVersion.versions.length : 0;
+  agentWithVersion.instructions = appendMathFormattingInstructions(agent.instructions) ?? '';
   return agent;
 }
