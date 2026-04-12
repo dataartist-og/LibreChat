@@ -1,5 +1,8 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFile as execFileCallback } from 'child_process';
+import { promisify } from 'util';
 import FormData from 'form-data';
 import { logger } from '@librechat/data-schemas';
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -20,6 +23,7 @@ import type {
   ServerRequest,
   OCRResult,
   OCRImage,
+  OCRStoredPage,
 } from '~/types';
 import { logAxiosError, createAxiosInstance } from '~/utils/axios';
 import { readFileAsBuffer } from '~/utils/files';
@@ -28,6 +32,8 @@ import { loadServiceKey } from '~/utils/key';
 const axios = createAxiosInstance();
 const DEFAULT_MISTRAL_BASE_URL = 'https://api.mistral.ai/v1';
 const DEFAULT_MISTRAL_MODEL = 'mistral-ocr-latest';
+const execFile = promisify(execFileCallback);
+const captionPattern = /(?:^|\n)\s*(?:Figure|Fig\.|Table)\s+\d+[A-Za-z]?(?::|\.)/gim;
 
 /** Helper type for auth configuration */
 interface AuthConfig {
@@ -145,12 +151,14 @@ export async function performOCR({
   model = DEFAULT_MISTRAL_MODEL,
   baseURL = DEFAULT_MISTRAL_BASE_URL,
   documentType = 'document_url',
+  includeImageBase64 = false,
 }: {
   url: string;
   apiKey: string;
   model?: string;
   baseURL?: string;
   documentType?: 'document_url' | 'image_url';
+  includeImageBase64?: boolean;
 }): Promise<OCRResult> {
   const documentKey = documentType === 'image_url' ? 'image_url' : 'document_url';
 
@@ -173,7 +181,7 @@ export async function performOCR({
       {
         model,
         image_limit: 0,
-        include_image_base64: false,
+        include_image_base64: includeImageBase64,
         document: {
           type: documentType,
           [documentKey]: url,
@@ -334,29 +342,126 @@ function getDocumentType(file: Express.Multer.File): 'image_url' | 'document_url
 /**
  * Processes OCR result pages into aggregated text and images
  */
-function processOCRResult(ocrResult: OCRResult): { text: string; images: string[] } {
+export function countCaptionCandidates(markdown: string): number {
+  return markdown.match(captionPattern)?.length ?? 0;
+}
+
+function isPdfSourceFile(sourceFilePath?: string): boolean {
+  return path.extname(sourceFilePath ?? '').toLowerCase() === '.pdf';
+}
+
+async function renderPdfPageSnapshot(params: {
+  filePath: string;
+  pageNumber: number;
+}): Promise<string | null> {
+  const outputBase = path.join(
+    os.tmpdir(),
+    `librechat-ocr-${Date.now()}-${Math.random().toString(36).slice(2)}-page-${params.pageNumber}`,
+  );
+  const outputPath = `${outputBase}.png`;
+
+  try {
+    await execFile('pdftocairo', [
+      '-png',
+      '-singlefile',
+      '-f',
+      String(params.pageNumber),
+      '-l',
+      String(params.pageNumber),
+      params.filePath,
+      outputBase,
+    ]);
+
+    const rendered = await fs.promises.readFile(outputPath);
+    return rendered.toString('base64');
+  } catch (error) {
+    logger.error('Error rendering PDF page snapshot fallback:', error);
+    return null;
+  } finally {
+    await fs.promises.rm(outputPath, { force: true }).catch(() => undefined);
+  }
+}
+
+type OCRProcessingOptions = {
+  sourceFilePath?: string;
+  renderPageSnapshot?: (params: { filePath: string; pageNumber: number }) => Promise<string | null>;
+};
+
+export async function processOCRResult(
+  ocrResult: OCRResult,
+  options: OCRProcessingOptions = {},
+): Promise<{
+  text: string;
+  images: string[];
+  pages: OCRStoredPage[];
+}> {
   let aggregatedText = '';
   const images: string[] = [];
+  const pages: OCRStoredPage[] = [];
+  const renderPageSnapshot = options.renderPageSnapshot ?? renderPdfPageSnapshot;
 
-  ocrResult.pages.forEach((page: OCRResultPage, index: number) => {
+  for (const [index, page] of ocrResult.pages.entries()) {
     if (ocrResult.pages.length > 1) {
       aggregatedText += `# PAGE ${index + 1}\n`;
     }
 
     aggregatedText += page.markdown + '\n\n';
 
-    if (!page.images || page.images.length === 0) {
-      return;
+    const storedImages = (page.images || [])
+      .filter((image: OCRImage) => Boolean(image.image_base64))
+      .map((image: OCRImage) => ({
+        id: image.id,
+        topLeftX: image.top_left_x,
+        topLeftY: image.top_left_y,
+        bottomRightX: image.bottom_right_x,
+        bottomRightY: image.bottom_right_y,
+        imageBase64: image.image_base64,
+        imageAnnotation: image.image_annotation ?? null,
+        reusable: false,
+      }));
+
+    const pageNumber = page.index + 1;
+    const missingCaptionAssets =
+      countCaptionCandidates(page.markdown) - Math.max(storedImages.length, 0);
+
+    if (
+      missingCaptionAssets > 0 &&
+      isPdfSourceFile(options.sourceFilePath) &&
+      options.sourceFilePath
+    ) {
+      const snapshotBase64 = await renderPageSnapshot({
+        filePath: options.sourceFilePath,
+        pageNumber,
+      });
+
+      if (snapshotBase64) {
+        storedImages.push({
+          id: `page-snapshot-${pageNumber}`,
+          topLeftX: 0,
+          topLeftY: 0,
+          bottomRightX: page.dimensions.width,
+          bottomRightY: page.dimensions.height,
+          imageBase64: snapshotBase64,
+          imageAnnotation: null,
+          reusable: true,
+        });
+      }
     }
 
-    page.images.forEach((image: OCRImage) => {
-      if (image.image_base64) {
-        images.push(image.image_base64);
+    pages.push({
+      index: page.index,
+      dimensions: page.dimensions,
+      images: storedImages,
+    });
+
+    storedImages.forEach((image) => {
+      if (image.imageBase64) {
+        images.push(image.imageBase64);
       }
     });
-  });
+  }
 
-  return { text: aggregatedText, images };
+  return { text: aggregatedText, images, pages };
 }
 
 /**
@@ -419,6 +524,7 @@ export const uploadMistralOCR = async (context: OCRContext): Promise<MistralOCRU
       baseURL,
       apiKey,
       model,
+      includeImageBase64: true,
     });
 
     if (!ocrResult || !ocrResult.pages || ocrResult.pages.length === 0) {
@@ -426,7 +532,9 @@ export const uploadMistralOCR = async (context: OCRContext): Promise<MistralOCRU
         'No OCR result returned from service, may be down or the file is not supported.',
       );
     }
-    const { text, images } = processOCRResult(ocrResult);
+    const { text, images, pages } = await processOCRResult(ocrResult, {
+      sourceFilePath: context.file.path,
+    });
 
     if (mistralFileId && apiKey && baseURL) {
       await deleteMistralFile({ fileId: mistralFileId, apiKey, baseURL });
@@ -438,6 +546,7 @@ export const uploadMistralOCR = async (context: OCRContext): Promise<MistralOCRU
       filepath: FileSources.mistral_ocr,
       text,
       images,
+      pages,
     };
   } catch (error) {
     if (mistralFileId && apiKey && baseURL) {
@@ -481,6 +590,7 @@ export const uploadAzureMistralOCR = async (
       model,
       url: `${base64Prefix}${base64}`,
       documentType,
+      includeImageBase64: true,
     });
 
     if (!ocrResult || !ocrResult.pages || ocrResult.pages.length === 0) {
@@ -489,7 +599,9 @@ export const uploadAzureMistralOCR = async (
       );
     }
 
-    const { text, images } = processOCRResult(ocrResult);
+    const { text, images, pages } = await processOCRResult(ocrResult, {
+      sourceFilePath: context.file.path,
+    });
 
     return {
       filename: context.file.originalname,
@@ -497,6 +609,7 @@ export const uploadAzureMistralOCR = async (
       filepath: FileSources.azure_mistral_ocr,
       text,
       images,
+      pages,
     };
   } catch (error) {
     throw createOCRError(error, 'Error uploading document to Azure Mistral OCR API:');
@@ -717,7 +830,9 @@ export const uploadGoogleVertexMistralOCR = async (
       );
     }
 
-    const { text, images } = processOCRResult(ocrResult);
+    const { text, images, pages } = await processOCRResult(ocrResult, {
+      sourceFilePath: context.file.path,
+    });
 
     return {
       filename: context.file.originalname,
@@ -725,6 +840,7 @@ export const uploadGoogleVertexMistralOCR = async (
       filepath: FileSources.vertexai_mistral_ocr as string,
       text,
       images,
+      pages,
     };
   } catch (error) {
     throw createOCRError(error, 'Error uploading document to Google Vertex AI Mistral OCR:');

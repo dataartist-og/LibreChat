@@ -148,4 +148,107 @@ describe('Project and Clarification Methods', () => {
     expect(clarification.anchorContextBefore).toBe('');
     expect(clarification.anchorContextAfter).toBe('');
   });
+
+  it('supports visualization create, list, update, and latest-version management', async () => {
+    const project = await methods.createProject(userId, {
+      name: 'Geometry',
+    });
+
+    const visualization = await methods.createVisualization(userId, {
+      projectId: project.projectId,
+      conversationId: 'conversation-visual-1',
+      parentMessageId: 'message-visual-1',
+      anchorStart: 5,
+      anchorEnd: 12,
+      anchorText: 'ellipse',
+      anchorContextBefore: 'An ',
+      anchorContextAfter: ' appears here.',
+      anchorPath: null,
+      inlineThreadId: null,
+      title: 'Ellipse intuition',
+      description: 'An SVG ellipse sketch.',
+      artifactType: 'svg',
+      status: 'ready',
+      storageMode: 'db_inline',
+      canonicalSourceText: '<svg viewBox="0 0 100 60"></svg>',
+      canonicalSourceMimeType: 'image/svg+xml',
+      compiledRenderText: '<svg viewBox="0 0 100 60"></svg>',
+      compiledRenderMimeType: 'image/svg+xml',
+      compiledRenderStoragePath: null,
+      sourcePrompt: 'Show an ellipse.',
+      generationModel: 'gpt-4o-mini',
+      generationMetadata: {
+        warnings: [],
+      },
+      integrationState: 'nested_only',
+      isLatestVersion: true,
+      versionNumber: 1,
+    });
+
+    const listedVisualizations = await methods.listVisualizations(userId, {
+      conversationId: 'conversation-visual-1',
+      parentMessageId: 'message-visual-1',
+    });
+    expect(listedVisualizations).toHaveLength(1);
+    expect(listedVisualizations[0].visualizationId).toBe(visualization.visualizationId);
+
+    const updatedVisualization = await methods.updateVisualization(userId, visualization.visualizationId, {
+      description: 'Updated ellipse sketch.',
+      integrationState: 'integrated',
+    });
+    expect(updatedVisualization?.description).toBe('Updated ellipse sketch.');
+    expect(updatedVisualization?.integrationState).toBe('integrated');
+
+    const versionTwo = await methods.createVisualization(userId, {
+      projectId: project.projectId,
+      conversationId: 'conversation-visual-1',
+      parentMessageId: 'message-visual-1',
+      anchorStart: 5,
+      anchorEnd: 12,
+      anchorText: 'ellipse',
+      anchorContextBefore: 'An ',
+      anchorContextAfter: ' appears here.',
+      anchorPath: null,
+      inlineThreadId: null,
+      parentVisualizationId: visualization.visualizationId,
+      rootVisualizationId: visualization.rootVisualizationId ?? visualization.visualizationId,
+      title: 'Ellipse intuition v2',
+      description: 'A newer SVG ellipse sketch.',
+      artifactType: 'svg',
+      status: 'ready',
+      storageMode: 'db_inline',
+      canonicalSourceText: '<svg viewBox="0 0 120 60"></svg>',
+      canonicalSourceMimeType: 'image/svg+xml',
+      compiledRenderText: '<svg viewBox="0 0 120 60"></svg>',
+      compiledRenderMimeType: 'image/svg+xml',
+      compiledRenderStoragePath: null,
+      sourcePrompt: 'Show an ellipse in version two.',
+      generationModel: 'gpt-4o-mini',
+      generationMetadata: {
+        warnings: ['adjusted size'],
+      },
+      integrationState: 'integrated',
+      isLatestVersion: true,
+      versionNumber: 2,
+    });
+
+    await methods.setVisualizationLatestVersion(
+      userId,
+      versionTwo.rootVisualizationId ?? versionTwo.visualizationId,
+      versionTwo.visualizationId,
+    );
+
+    const versions = await methods.listVisualizationVersions(
+      userId,
+      versionTwo.rootVisualizationId ?? versionTwo.visualizationId,
+    );
+    expect(versions).toHaveLength(2);
+    expect(versions[1].versionNumber).toBe(2);
+
+    const latest = await methods.getLatestVisualizationVersion(
+      userId,
+      versionTwo.rootVisualizationId ?? versionTwo.visualizationId,
+    );
+    expect(latest?.visualizationId).toBe(versionTwo.visualizationId);
+  });
 });

@@ -1,13 +1,21 @@
 import type { InfiniteData } from '@tanstack/react-query';
 import type {
   TConversationTag,
+  TDocumentAnchor,
+  TDocumentClarification,
+  TDocumentVisualization,
+  TDocumentWorkspace,
+  TStudyDocument,
   EModelEndpoint,
   TConversation,
   TClarificationStatus,
+  TExistingClarificationContext,
   TSharedLink,
   TAttachment,
   TMessage,
   TBanner,
+  TVisualizationArtifactType,
+  TVisualizationIntegrationState,
 } from './schemas';
 import type { SettingDefinition } from './generate';
 import type { TMinimalFeedback } from './feedback';
@@ -300,6 +308,45 @@ export type TProjectSourceUpdateRequest = Omit<TProjectSourceCreateRequest, 'pro
   sourceType?: 'file' | 'url' | 'note';
 };
 
+export type TStudyDocumentListParams = {
+  projectId?: string | null;
+};
+
+export type TStudyDocumentCreateRequest = {
+  sourceFileId: string;
+  projectId?: string | null;
+  title?: string | null;
+};
+
+export type TStudyDocumentReingestRequest = {
+  documentId: string;
+};
+
+export type TDocumentClarificationCreateRequest = {
+  documentId: string;
+  renderVersionId: string;
+  anchor: TDocumentAnchor;
+  clarificationQuestion: string;
+};
+
+export type TDocumentClarificationIntegrateRequest = {
+  clarificationId: string;
+  displayMode?: 'integrated' | 'nested';
+};
+
+export type TDocumentVisualizationCreateRequest = {
+  documentId: string;
+  renderVersionId: string;
+  anchor: TDocumentAnchor;
+  prompt: string;
+  artifactType: TVisualizationArtifactType;
+};
+
+export type TDocumentVisualizationIntegrateRequest = {
+  visualizationId: string;
+  displayMode?: 'integrated' | 'nested';
+};
+
 export type TClarificationListParams = {
   conversationId: string;
   parentMessageId?: string;
@@ -342,6 +389,87 @@ export type TClarificationReanchorRequest = {
   clarificationId: string;
   parentText?: string;
 };
+
+export type TClarificationSuggestionRequest = {
+  projectId?: string | null;
+  conversationId: string;
+  parentMessageId: string;
+  anchorStart: number;
+  anchorEnd: number;
+  anchorText: string;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
+  existingClarifications?: TExistingClarificationContext[];
+};
+
+export type TVisualizationListParams = {
+  conversationId: string;
+  parentMessageId?: string;
+  includeArchived?: boolean;
+  includeDeleted?: boolean;
+  includeAllVersions?: boolean;
+};
+
+export type TVisualizationCreateRequest = {
+  projectId?: string | null;
+  conversationId: string;
+  parentMessageId: string;
+  anchorStart: number;
+  anchorEnd: number;
+  anchorText: string;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
+  anchorPath?: string | null;
+  inlineThreadId?: string | null;
+  prompt: string;
+  artifactType: TVisualizationArtifactType;
+  contextText?: string;
+};
+
+export type TVisualizationUpdateRequest = {
+  visualizationId: string;
+  title?: string;
+  description?: string;
+  sourcePrompt?: string;
+  canonicalSourceText?: string;
+  integrationState?: TVisualizationIntegrationState;
+};
+
+export type TVisualizationRegenerateRequest = {
+  visualizationId: string;
+  prompt?: string;
+  artifactType?: TVisualizationArtifactType;
+};
+
+export type TVisualizationRefineRequest = {
+  visualizationId: string;
+  instruction: string;
+};
+
+export type TVisualizationIntegrateRequest = {
+  visualizationId: string;
+  messageId: string;
+  anchorPath?: string | null;
+  displayMode?: 'integrated' | 'nested';
+};
+
+export type TVisualizationDuplicateRequest = {
+  visualizationId: string;
+};
+
+export type TVisualizationSuggestionRequest = {
+  projectId?: string | null;
+  conversationId: string;
+  parentMessageId: string;
+  anchorStart: number;
+  anchorEnd: number;
+  anchorText: string;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
+  existingClarifications?: TExistingClarificationContext[];
+};
+
+export type { TStudyDocument, TDocumentWorkspace, TDocumentClarification, TDocumentVisualization };
 
 export type TDeleteConversationRequest = {
   conversationId?: string;

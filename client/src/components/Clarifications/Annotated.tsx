@@ -1,16 +1,27 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageCirclePlus } from 'lucide-react';
-import type { TClarification, TMessage } from 'librechat-data-provider';
+import { BarChart3, Loader2, MessageCirclePlus, WandSparkles } from 'lucide-react';
+import type {
+  TClarification,
+  TMessage,
+  TVisualization,
+  TVisualizationArtifactType,
+} from 'librechat-data-provider';
 import { useRecoilValue } from 'recoil';
 import { useMessageContext } from '~/Providers';
 import {
   useConversationClarificationsQuery,
+  useConversationVisualizationsQuery,
+  useClarificationSuggestionsQuery,
   useCreateClarificationMutation,
+  useCreateVisualizationMutation,
+  useVisualizationSuggestionsQuery,
 } from '~/data-provider';
-import { useLocalize } from '~/hooks';
+import { useLocalize, type TranslationKeys } from '~/hooks';
+import { VisualizationCard, VisualizationTab } from '~/components/Visualizations';
 import { cn } from '~/utils';
 import Markdown from '~/components/Chat/Messages/Content/Markdown';
+import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 import ClarificationBlock from './Block';
 import store from '~/store';
 
@@ -26,30 +37,138 @@ type SelectionState = {
   anchorText: string;
   anchorContextBefore: string;
   anchorContextAfter: string;
+  previewHtml: string;
   top: number;
   left: number;
 };
 
-type ClarificationGroup = {
+type AnchorGroup = {
   key: string;
   anchorText: string;
   anchorStart: number;
   anchorEnd: number;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
   clarifications: TClarification[];
+  visualizations: TVisualization[];
 };
 
 type SlotState = {
   slotId: string;
   container: HTMLDivElement;
-  group: ClarificationGroup;
+  group: AnchorGroup;
 };
+
+type AnchoredItem = {
+  anchorStart: number;
+  anchorEnd: number;
+  anchorText: string;
+  anchorContextBefore: string;
+  anchorContextAfter: string;
+};
+
+type InlineSuggestionProfile = 'conceptual' | 'procedural' | 'equational' | 'precise' | 'mixed';
 
 const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6';
 const hiddenSelector = '[data-inline-clarification-slot],[data-inline-annotation-badge]';
 const emptyClarifications: TClarification[] = [];
+const emptyVisualizations: TVisualization[] = [];
+const popupPreviewClasses =
+  'markdown prose prose-sm message-content w-full break-words text-text-primary dark:prose-invert dark:text-gray-100';
+const visualizationQuickTypes: Array<{
+  artifactType: TVisualizationArtifactType;
+  labelKey: TranslationKeys;
+}> = [
+  { artifactType: 'html_app', labelKey: 'com_ui_interactive_html' },
+  { artifactType: 'svg', labelKey: 'com_ui_svg' },
+  { artifactType: 'mermaid', labelKey: 'com_ui_mermaid' },
+  { artifactType: 'image', labelKey: 'com_ui_static_image' },
+];
+const contentProfileLabelKeys: Record<InlineSuggestionProfile, TranslationKeys> = {
+  conceptual: 'com_ui_content_profile_conceptual',
+  procedural: 'com_ui_content_profile_procedural',
+  equational: 'com_ui_content_profile_equational',
+  precise: 'com_ui_content_profile_precise',
+  mixed: 'com_ui_content_profile_mixed',
+};
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function hasContextOverlap(source: string, candidate: string, edge: 'start' | 'end'): boolean {
+  const normalizedSource = normalizeWhitespace(source);
+  const normalizedCandidate = normalizeWhitespace(candidate);
+  if (!normalizedSource || !normalizedCandidate) {
+    return true;
+  }
+
+  const sourceNeedle = edge === 'end' ? normalizedSource.slice(-48) : normalizedSource.slice(0, 48);
+  const candidateNeedle =
+    edge === 'end' ? normalizedCandidate.slice(-48) : normalizedCandidate.slice(0, 48);
+
+  return sourceNeedle.includes(candidateNeedle) || candidateNeedle.includes(sourceNeedle);
+}
+
+function areRelatedAnchors(
+  left: Pick<AnchoredItem, 'anchorText' | 'anchorContextBefore' | 'anchorContextAfter'>,
+  right: Pick<AnchoredItem, 'anchorText' | 'anchorContextBefore' | 'anchorContextAfter'>,
+): boolean {
+  return (
+    normalizeWhitespace(left.anchorText) === normalizeWhitespace(right.anchorText) &&
+    hasContextOverlap(left.anchorContextBefore, right.anchorContextBefore, 'end') &&
+    hasContextOverlap(left.anchorContextAfter, right.anchorContextAfter, 'start')
+  );
+}
+
+function mapExistingClarifications(clarifications: TClarification[]) {
+  return clarifications.slice(0, 3).map((clarification) => ({
+    question: clarification.clarificationQuestion,
+    answer: clarification.clarificationAnswer,
+  }));
+}
+
+function SuggestionSummary({
+  contentProfile,
+  focusSummary,
+}: {
+  contentProfile: InlineSuggestionProfile;
+  focusSummary: string;
+}) {
+  const localize = useLocalize();
+
+  return (
+    <div className="bg-surface-primary/60 mb-3 rounded-xl border border-border-light px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+        {localize('com_ui_content_profile')}{' '}
+        <span className="text-text-primary">
+          {localize(contentProfileLabelKeys[contentProfile] ?? contentProfileLabelKeys.mixed)}
+        </span>
+      </div>
+      <div className="mt-1 text-sm text-text-primary">{focusSummary}</div>
+    </div>
+  );
+}
+
+function SuggestionsLoadingState() {
+  const localize = useLocalize();
+
+  return (
+    <div className="bg-surface-primary/40 mb-3 flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-secondary">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {localize('com_ui_generating_suggestions')}
+    </div>
+  );
+}
+
+function SuggestionsErrorState() {
+  const localize = useLocalize();
+
+  return (
+    <div className="bg-surface-primary/40 mb-3 rounded-xl border border-dashed border-border-light px-3 py-2 text-sm text-text-secondary">
+      {localize('com_ui_suggestions_unavailable')}
+    </div>
+  );
 }
 
 function scoreContextMatch(
@@ -99,7 +218,13 @@ function resolveAnchorWithContext(
     const anchorEnd = anchorStart + normalizedAnchor.length;
     const proximityScore =
       preferredStart == null ? 0 : Math.max(0, 4 - Math.abs(anchorStart - preferredStart) / 80);
-    const contextScore = scoreContextMatch(text, anchorStart, anchorEnd, contextBefore, contextAfter);
+    const contextScore = scoreContextMatch(
+      text,
+      anchorStart,
+      anchorEnd,
+      contextBefore,
+      contextAfter,
+    );
     matches.push({
       anchorStart,
       anchorEnd,
@@ -177,7 +302,6 @@ function findFirstTextNode(node: Node): Text | null {
     }
     currentNode = walker.nextNode();
   }
-
   return null;
 }
 
@@ -211,7 +335,8 @@ function findAdjacentTextNode(
     return (
       textNodes.find(
         (textNode) =>
-          (referenceNode.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+          (referenceNode.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+          0,
       ) ?? null
     );
   }
@@ -339,37 +464,105 @@ function cleanupAnnotations(root: HTMLElement) {
   });
 }
 
-function buildClarificationGroups(
+function unwrapElement(element: Element) {
+  const parent = element.parentNode;
+  if (!parent) {
+    return;
+  }
+
+  while (element.firstChild) {
+    parent.insertBefore(element.firstChild, element);
+  }
+  parent.removeChild(element);
+}
+
+function buildSelectionPreviewHtml(range: Range): string {
+  const container = document.createElement('div');
+  container.appendChild(range.cloneContents());
+
+  container
+    .querySelectorAll(
+      '[data-inline-annotation-badge],[data-inline-clarification-slot],.katex-mathml,annotation[encoding="application/x-tex"],annotation-xml',
+    )
+    .forEach((element) => element.remove());
+
+  container
+    .querySelectorAll('[data-inline-annotation-fragment="true"]')
+    .forEach((element) => unwrapElement(element));
+
+  return container.innerHTML.trim();
+}
+
+function createInitialGroup(
+  key: string,
+  item: AnchoredItem,
+  resolved: { anchorStart: number; anchorEnd: number } | null,
+): AnchorGroup {
+  return {
+    key,
+    anchorText: item.anchorText,
+    anchorStart: resolved?.anchorStart ?? -1,
+    anchorEnd: resolved?.anchorEnd ?? -1,
+    anchorContextBefore: item.anchorContextBefore,
+    anchorContextAfter: item.anchorContextAfter,
+    clarifications: [],
+    visualizations: [],
+  };
+}
+
+function buildAnchorGroups(
   clarifications: TClarification[],
+  visualizations: TVisualization[],
   renderedText: string,
-): { groups: ClarificationGroup[]; brokenGroups: ClarificationGroup[] } {
-  const grouped = clarifications.reduce<Record<string, ClarificationGroup>>((acc, clarification) => {
+): { groups: AnchorGroup[]; brokenGroups: AnchorGroup[] } {
+  const grouped = new Map<string, AnchorGroup>();
+
+  const addItem = (
+    item: AnchoredItem,
+    kind: 'clarification' | 'visualization',
+    rawItem: unknown,
+  ) => {
     const resolved = resolveAnchorWithContext(
       renderedText,
-      clarification.anchorText,
-      clarification.anchorContextBefore,
-      clarification.anchorContextAfter,
-      clarification.anchorStart,
+      item.anchorText,
+      item.anchorContextBefore,
+      item.anchorContextAfter,
+      item.anchorStart,
     );
-    const key = `${clarification.anchorText}:${resolved?.anchorStart ?? clarification.anchorStart}`;
+    const key = `${item.anchorText}:${resolved?.anchorStart ?? item.anchorStart}`;
+    const group = grouped.get(key) ?? createInitialGroup(key, item, resolved);
 
-    if (!acc[key]) {
-      acc[key] = {
-        key,
-        anchorText: clarification.anchorText,
-        anchorStart: resolved?.anchorStart ?? -1,
-        anchorEnd: resolved?.anchorEnd ?? -1,
-        clarifications: [],
-      };
+    if (group.anchorStart < 0 && resolved) {
+      group.anchorStart = resolved.anchorStart;
+      group.anchorEnd = resolved.anchorEnd;
     }
 
-    acc[key].clarifications.push(clarification);
-    return acc;
-  }, {});
+    if (kind === 'clarification') {
+      group.clarifications.push(rawItem as TClarification);
+    } else {
+      group.visualizations.push(rawItem as TVisualization);
+    }
 
-  const groups = Object.values(grouped).sort((left, right) => left.anchorStart - right.anchorStart);
-  const activeGroups = groups.filter((group) => group.anchorStart >= 0 && group.anchorEnd > group.anchorStart);
-  const brokenGroups = groups.filter((group) => !(group.anchorStart >= 0 && group.anchorEnd > group.anchorStart));
+    grouped.set(key, group);
+  };
+
+  clarifications.forEach((clarification) => {
+    addItem(clarification, 'clarification', clarification);
+  });
+
+  visualizations.forEach((visualization) => {
+    addItem(visualization, 'visualization', visualization);
+  });
+
+  const groups = Array.from(grouped.values()).sort(
+    (left, right) => left.anchorStart - right.anchorStart,
+  );
+  const activeGroups = groups.filter(
+    (group) => group.anchorStart >= 0 && group.anchorEnd > group.anchorStart,
+  );
+  const brokenGroups = groups.filter(
+    (group) => !(group.anchorStart >= 0 && group.anchorEnd > group.anchorStart),
+  );
 
   return {
     groups: activeGroups,
@@ -383,7 +576,7 @@ function getFragmentsForGroup(root: HTMLElement, key: string): HTMLElement[] {
   );
 }
 
-function applyAnnotations(root: HTMLElement, groups: ClarificationGroup[]): SlotState[] {
+function applyAnnotations(root: HTMLElement, groups: AnchorGroup[]): SlotState[] {
   const nodes = getTextNodes(root);
   let globalStart = 0;
 
@@ -434,13 +627,19 @@ function applyAnnotations(root: HTMLElement, groups: ClarificationGroup[]): Slot
         'inline rounded-sm bg-amber-300/35 px-[0.08rem] text-current shadow-[inset_0_-2px_0_rgba(245,158,11,0.55)] dark:bg-amber-500/15';
       wrapper.appendChild(document.createTextNode(segmentText));
 
-      if (segmentGroups.some((group) => group.clarifications.length > 1)) {
+      if (
+        segmentGroups.some((group) => group.clarifications.length + group.visualizations.length > 1)
+      ) {
         const badge = document.createElement('span');
         badge.dataset.inlineAnnotationBadge = 'true';
         badge.className =
           'ml-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white';
         badge.textContent = String(
-          Math.max(...segmentGroups.map((group) => group.clarifications.length)),
+          Math.max(
+            ...segmentGroups.map(
+              (group) => group.clarifications.length + group.visualizations.length,
+            ),
+          ),
         );
         wrapper.appendChild(badge);
       }
@@ -490,50 +689,380 @@ function applyAnnotations(root: HTMLElement, groups: ClarificationGroup[]): Slot
   return slots;
 }
 
-function Composer({
+function SelectionComposer({
   selection,
-  pending,
+  conversationId,
+  parentMessageId,
+  projectId,
+  existingClarifications,
+  clarificationPending,
+  visualizationPending,
   onCancel,
-  onSubmit,
+  onSubmitClarification,
+  onSubmitVisualization,
 }: {
   selection: SelectionState;
-  pending: boolean;
+  conversationId: string;
+  parentMessageId: string;
+  projectId?: string | null;
+  existingClarifications: TClarification[];
+  clarificationPending: boolean;
+  visualizationPending: boolean;
   onCancel: () => void;
-  onSubmit: (question: string) => Promise<void>;
+  onSubmitClarification: (question: string) => Promise<void>;
+  onSubmitVisualization: (
+    prompt: string,
+    artifactType: TVisualizationArtifactType,
+  ) => Promise<void>;
 }) {
   const localize = useLocalize();
+  const [activeTab, setActiveTab] = useState<'clarification' | 'visualization'>('clarification');
   const [question, setQuestion] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [artifactType, setArtifactType] = useState<TVisualizationArtifactType>('html_app');
+  const existingClarificationContext = useMemo(
+    () => mapExistingClarifications(existingClarifications),
+    [existingClarifications],
+  );
+  const clarificationSuggestionsQuery = useClarificationSuggestionsQuery(
+    activeTab === 'clarification'
+      ? {
+          projectId,
+          conversationId,
+          parentMessageId,
+          anchorStart: selection.anchorStart,
+          anchorEnd: selection.anchorEnd,
+          anchorText: selection.anchorText,
+          anchorContextBefore: selection.anchorContextBefore,
+          anchorContextAfter: selection.anchorContextAfter,
+          existingClarifications: existingClarificationContext,
+        }
+      : null,
+    {
+      enabled: activeTab === 'clarification',
+    },
+  );
+  const visualizationSuggestionsQuery = useVisualizationSuggestionsQuery(
+    activeTab === 'visualization'
+      ? {
+          projectId,
+          conversationId,
+          parentMessageId,
+          anchorStart: selection.anchorStart,
+          anchorEnd: selection.anchorEnd,
+          anchorText: selection.anchorText,
+          anchorContextBefore: selection.anchorContextBefore,
+          anchorContextAfter: selection.anchorContextAfter,
+          existingClarifications: existingClarificationContext,
+        }
+      : null,
+    {
+      enabled: activeTab === 'visualization',
+    },
+  );
 
   return (
     <div
       data-inline-clarification-composer="true"
-      className="fixed z-50 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-border-light bg-surface-primary p-3 shadow-2xl"
+      className="fixed z-50 w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-border-light bg-surface-primary p-3 shadow-2xl"
       style={{
         top: selection.top,
         left: selection.left,
       }}
     >
+      <div className="mb-2 flex items-center gap-2">
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
+            activeTab === 'clarification'
+              ? 'bg-surface-active-alt text-text-primary'
+              : 'bg-surface-secondary text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+          }`}
+          onClick={() => setActiveTab('clarification')}
+        >
+          <MessageCirclePlus className="h-3.5 w-3.5" />
+          {localize('com_ui_clarification')}
+        </button>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
+            activeTab === 'visualization'
+              ? 'bg-surface-active-alt text-text-primary'
+              : 'bg-surface-secondary text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+          }`}
+          onClick={() => setActiveTab('visualization')}
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          {localize('com_ui_visualization')}
+        </button>
+      </div>
+      <div className="bg-surface-secondary/60 mb-3 rounded-lg px-3 py-2">
+        <div className={popupPreviewClasses}>
+          {selection.previewHtml ? (
+            <div dangerouslySetInnerHTML={{ __html: selection.previewHtml }} />
+          ) : (
+            <MarkdownLite content={selection.anchorText} codeExecution={false} />
+          )}
+        </div>
+      </div>
+
+      {activeTab === 'clarification' ? (
+        <>
+          {clarificationSuggestionsQuery.isLoading ? <SuggestionsLoadingState /> : null}
+          {!clarificationSuggestionsQuery.isLoading && clarificationSuggestionsQuery.isError ? (
+            <SuggestionsErrorState />
+          ) : null}
+          {clarificationSuggestionsQuery.data ? (
+            <>
+              <SuggestionSummary
+                contentProfile={clarificationSuggestionsQuery.data.contentProfile}
+                focusSummary={clarificationSuggestionsQuery.data.focusSummary}
+              />
+              <div className="mb-3 space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                  {localize('com_ui_suggested_clarifications')}
+                </div>
+                {clarificationSuggestionsQuery.data.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.label}
+                    type="button"
+                    className="bg-surface-primary/70 w-full rounded-xl border border-border-light px-3 py-2 text-left transition hover:bg-surface-hover"
+                    onClick={() => setQuestion(suggestion.proposedQuestion)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-text-primary">
+                        {suggestion.label}
+                      </div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                        {localize('com_ui_use_suggestion')}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-sm text-text-primary">
+                      {suggestion.proposedQuestion}
+                    </div>
+                    <div className="mt-1 text-xs text-text-secondary">
+                      {suggestion.understandingGain}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder={localize('com_ui_clarification_question_placeholder')}
+            className="min-h-[96px] w-full rounded-xl border border-border-medium bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus:border-border-heavy"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button type="button" className="btn btn-neutral" onClick={onCancel}>
+              {localize('com_ui_cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={clarificationPending || question.trim().length === 0}
+              onClick={() => onSubmitClarification(question.trim())}
+            >
+              {localize('com_ui_ask')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {visualizationSuggestionsQuery.isLoading ? <SuggestionsLoadingState /> : null}
+          {!visualizationSuggestionsQuery.isLoading && visualizationSuggestionsQuery.isError ? (
+            <SuggestionsErrorState />
+          ) : null}
+          {visualizationSuggestionsQuery.data ? (
+            <>
+              <SuggestionSummary
+                contentProfile={visualizationSuggestionsQuery.data.contentProfile}
+                focusSummary={visualizationSuggestionsQuery.data.focusSummary}
+              />
+              <div className="mb-3 space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                  {localize('com_ui_suggested_visualizations')}
+                </div>
+                {visualizationSuggestionsQuery.data.suggestions.map((suggestion) => (
+                  <button
+                    key={`${suggestion.label}:${suggestion.artifactType}`}
+                    type="button"
+                    className="bg-surface-primary/70 w-full rounded-xl border border-border-light px-3 py-2 text-left transition hover:bg-surface-hover"
+                    onClick={() => {
+                      setPrompt(suggestion.proposedPrompt);
+                      setArtifactType(suggestion.artifactType);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-text-primary">
+                        {suggestion.label}
+                      </div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                        {localize('com_ui_use_suggestion')}
+                      </div>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
+                        {suggestion.artifactType}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm text-text-primary">
+                      {suggestion.proposedPrompt}
+                    </div>
+                    <div className="mt-1 text-xs text-text-secondary">
+                      {suggestion.understandingGain}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <div className="mb-3 flex flex-wrap gap-2">
+            {visualizationQuickTypes.map((item) => (
+              <button
+                key={item.artifactType}
+                type="button"
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  artifactType === item.artifactType
+                    ? 'bg-surface-active-alt text-text-primary'
+                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                }`}
+                onClick={() => setArtifactType(item.artifactType)}
+              >
+                {localize(item.labelKey)}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder={localize('com_ui_visualization_prompt_placeholder')}
+            className="min-h-[112px] w-full rounded-xl border border-border-medium bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus:border-border-heavy"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button type="button" className="btn btn-neutral" onClick={onCancel}>
+              {localize('com_ui_cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={visualizationPending || prompt.trim().length === 0}
+              onClick={() => onSubmitVisualization(prompt.trim(), artifactType)}
+            >
+              <WandSparkles className="mr-1 h-4 w-4" />
+              {localize('com_ui_generate_visualization')}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ClarificationComposer({
+  group,
+  conversationId,
+  parentMessageId,
+  projectId,
+}: {
+  group: AnchorGroup;
+  conversationId: string;
+  parentMessageId: string;
+  projectId?: string | null;
+}) {
+  const localize = useLocalize();
+  const createClarificationMutation = useCreateClarificationMutation();
+  const [question, setQuestion] = useState('');
+  const clarificationSuggestionsQuery = useClarificationSuggestionsQuery(
+    {
+      projectId,
+      conversationId,
+      parentMessageId,
+      anchorStart: group.anchorStart,
+      anchorEnd: group.anchorEnd,
+      anchorText: group.anchorText,
+      anchorContextBefore: group.anchorContextBefore,
+      anchorContextAfter: group.anchorContextAfter,
+      existingClarifications: mapExistingClarifications(group.clarifications),
+    },
+    {
+      enabled: true,
+    },
+  );
+
+  const handleCreate = async () => {
+    if (!question.trim()) {
+      return;
+    }
+
+    await createClarificationMutation.mutateAsync({
+      projectId: projectId ?? undefined,
+      conversationId,
+      parentMessageId,
+      anchorStart: group.anchorStart,
+      anchorEnd: group.anchorEnd,
+      anchorText: group.anchorText,
+      anchorContextBefore: group.anchorContextBefore,
+      anchorContextAfter: group.anchorContextAfter,
+      clarificationQuestion: question.trim(),
+    });
+    setQuestion('');
+  };
+
+  return (
+    <div className="bg-surface-secondary/30 rounded-xl border border-border-light p-3">
       <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
-        {localize('com_ui_ask_inline_clarification')}
+        {localize('com_ui_add_clarification')}
       </div>
-      <div className="mb-3 rounded-lg bg-surface-secondary/60 px-3 py-2 text-sm text-text-primary">
-        {selection.anchorText}
-      </div>
+      {clarificationSuggestionsQuery.isLoading ? <SuggestionsLoadingState /> : null}
+      {!clarificationSuggestionsQuery.isLoading && clarificationSuggestionsQuery.isError ? (
+        <SuggestionsErrorState />
+      ) : null}
+      {clarificationSuggestionsQuery.data ? (
+        <>
+          <SuggestionSummary
+            contentProfile={clarificationSuggestionsQuery.data.contentProfile}
+            focusSummary={clarificationSuggestionsQuery.data.focusSummary}
+          />
+          <div className="mb-3 space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-text-secondary">
+              {localize('com_ui_suggested_clarifications')}
+            </div>
+            {clarificationSuggestionsQuery.data.suggestions.map((suggestion) => (
+              <button
+                key={suggestion.label}
+                type="button"
+                className="bg-surface-primary/70 w-full rounded-xl border border-border-light px-3 py-2 text-left transition hover:bg-surface-hover"
+                onClick={() => setQuestion(suggestion.proposedQuestion)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-text-primary">{suggestion.label}</div>
+                  <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-secondary">
+                    {localize('com_ui_use_suggestion')}
+                  </div>
+                </div>
+                <div className="mt-1 text-sm text-text-primary">{suggestion.proposedQuestion}</div>
+                <div className="mt-1 text-xs text-text-secondary">
+                  {suggestion.understandingGain}
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
       <textarea
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
         placeholder={localize('com_ui_clarification_question_placeholder')}
-        className="min-h-[96px] w-full rounded-xl border border-border-medium bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus:border-border-heavy"
+        className="min-h-[88px] w-full rounded-xl border border-border-medium bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus:border-border-heavy"
       />
-      <div className="mt-3 flex items-center justify-end gap-2">
-        <button type="button" className="btn btn-neutral" onClick={onCancel}>
-          {localize('com_ui_cancel')}
-        </button>
+      <div className="mt-3 flex items-center justify-end">
         <button
           type="button"
           className="btn btn-primary"
-          disabled={pending || question.trim().length === 0}
-          onClick={() => onSubmit(question)}
+          disabled={createClarificationMutation.isLoading || question.trim().length === 0}
+          onClick={handleCreate}
         >
           {localize('com_ui_ask')}
         </button>
@@ -542,25 +1071,34 @@ function Composer({
   );
 }
 
-function ClarificationThread({
+function InlineThread({
   group,
   parentText,
   conversationId,
   parentMessageId,
+  projectId,
 }: {
-  group: ClarificationGroup;
+  group: AnchorGroup;
   parentText: string;
   conversationId: string;
   parentMessageId: string;
+  projectId?: string | null;
 }) {
   const localize = useLocalize();
-  const [collapsed, setCollapsed] = useState(group.clarifications.length > 1);
+  const [collapsed, setCollapsed] = useState(
+    group.clarifications.length + group.visualizations.length > 1,
+  );
+  const [activeTab, setActiveTab] = useState<'clarification' | 'visualization'>(
+    group.visualizations.length > 0 && group.clarifications.length === 0
+      ? 'visualization'
+      : 'clarification',
+  );
 
   return (
-    <div className="rounded-2xl border border-border-light/80 bg-surface-secondary/40 p-3">
+    <div className="border-border-light/80 bg-surface-secondary/40 rounded-2xl border p-3">
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-3 text-left"
+        className="flex w-full items-start justify-between gap-3 text-left"
         onClick={() => setCollapsed((prev) => !prev)}
       >
         <div className="min-w-0">
@@ -569,27 +1107,108 @@ function ClarificationThread({
           </div>
           <div className="truncate text-sm font-medium text-text-primary">{group.anchorText}</div>
         </div>
-        {group.clarifications.length > 1 ? (
-          <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-surface-active-alt px-2 text-xs font-semibold text-text-primary">
-            {group.clarifications.length}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span className="inline-flex rounded-full bg-surface-active-alt px-2 py-0.5 text-xs font-semibold text-text-primary">
+            {group.clarifications.length} {localize('com_ui_clarifications')}
           </span>
-        ) : null}
+          <span className="inline-flex rounded-full bg-surface-active-alt px-2 py-0.5 text-xs font-semibold text-text-primary">
+            {group.visualizations.length} {localize('com_ui_visualizations')}
+          </span>
+        </div>
       </button>
-      {!collapsed || group.clarifications.length === 1 ? (
+      {!collapsed ? (
         <div className="mt-3 space-y-3">
-          {group.clarifications.map((clarification) => (
-            <ClarificationBlock
-              key={clarification.clarificationId}
-              parentText={parentText}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                activeTab === 'clarification'
+                  ? 'bg-surface-active-alt text-text-primary'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+              }`}
+              onClick={() => setActiveTab('clarification')}
+            >
+              {localize('com_ui_clarification')}
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                activeTab === 'visualization'
+                  ? 'bg-surface-active-alt text-text-primary'
+                  : 'bg-surface-primary text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+              }`}
+              onClick={() => setActiveTab('visualization')}
+            >
+              {localize('com_ui_visualization')}
+            </button>
+          </div>
+
+          {activeTab === 'clarification' ? (
+            <div className="space-y-3">
+              {group.clarifications.length > 0 ? (
+                group.clarifications.map((clarification) => (
+                  <ClarificationBlock
+                    key={clarification.clarificationId}
+                    parentText={parentText}
+                    conversationId={conversationId}
+                    parentMessageId={parentMessageId}
+                    clarification={clarification}
+                  />
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-border-light px-4 py-6 text-sm text-text-secondary">
+                  {localize('com_ui_no_clarifications_yet')}
+                </div>
+              )}
+              <ClarificationComposer
+                group={group}
+                conversationId={conversationId}
+                parentMessageId={parentMessageId}
+                projectId={projectId}
+              />
+            </div>
+          ) : (
+            <VisualizationTab
+              anchorStart={group.anchorStart}
+              anchorEnd={group.anchorEnd}
+              anchorText={group.anchorText}
+              anchorContextBefore={group.anchorContextBefore}
+              anchorContextAfter={group.anchorContextAfter}
               conversationId={conversationId}
               parentMessageId={parentMessageId}
-              clarification={clarification}
+              projectId={projectId}
+              clarifications={group.clarifications}
+              visualizations={group.visualizations}
             />
-          ))}
+          )}
         </div>
       ) : null}
     </div>
   );
+}
+
+function renderIntegratedVisualizations(
+  group: AnchorGroup,
+  conversationId: string,
+  parentMessageId: string,
+): JSX.Element[] {
+  return group.visualizations
+    .filter(
+      (visualization) =>
+        visualization.integrationState === 'integrated' &&
+        visualization.isLatestVersion &&
+        visualization.status !== 'archived' &&
+        !visualization.deletedAt,
+    )
+    .map((visualization) => (
+      <VisualizationCard
+        key={`integrated-${visualization.visualizationId}`}
+        visualization={visualization}
+        conversationId={conversationId}
+        parentMessageId={parentMessageId}
+        integrated
+      />
+    ));
 }
 
 function AnnotatedAssistantMessage({
@@ -604,10 +1223,14 @@ function AnnotatedAssistantMessage({
   const { data: clarificationData } = useConversationClarificationsQuery(conversationId, {
     enabled: !!conversationId && !message.isCreatedByUser,
   });
+  const { data: visualizationData } = useConversationVisualizationsQuery(conversationId, {
+    enabled: !!conversationId && !message.isCreatedByUser,
+  });
   const createClarificationMutation = useCreateClarificationMutation();
+  const createVisualizationMutation = useCreateVisualizationMutation();
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [slots, setSlots] = useState<SlotState[]>([]);
-  const [brokenGroups, setBrokenGroups] = useState<ClarificationGroup[]>([]);
+  const [brokenGroups, setBrokenGroups] = useState<AnchorGroup[]>([]);
 
   const clarifications = useMemo(() => {
     if (!clarificationData?.length) {
@@ -620,6 +1243,26 @@ function AnnotatedAssistantMessage({
     );
   }, [clarificationData, message.messageId]);
 
+  const visualizations = useMemo(() => {
+    if (!visualizationData?.length) {
+      return emptyVisualizations;
+    }
+
+    return visualizationData.filter(
+      (visualization) =>
+        visualization.parentMessageId === message.messageId &&
+        visualization.status !== 'archived' &&
+        !visualization.deletedAt,
+    );
+  }, [message.messageId, visualizationData]);
+  const selectionClarifications = useMemo(() => {
+    if (!selection) {
+      return emptyClarifications;
+    }
+
+    return clarifications.filter((clarification) => areRelatedAnchors(clarification, selection));
+  }, [clarifications, selection]);
+
   useEffect(() => {
     const root = contentRef.current;
     if (!root) {
@@ -628,8 +1271,9 @@ function AnnotatedAssistantMessage({
 
     cleanupAnnotations(root);
     const renderedText = collectPlainText(root);
-    const { groups, brokenGroups: unresolvedGroups } = buildClarificationGroups(
+    const { groups, brokenGroups: unresolvedGroups } = buildAnchorGroups(
       clarifications,
+      visualizations,
       renderedText,
     );
     const nextSlots = applyAnnotations(root, groups);
@@ -639,7 +1283,7 @@ function AnnotatedAssistantMessage({
     return () => {
       cleanupAnnotations(root);
     };
-  }, [clarifications, content]);
+  }, [clarifications, content, visualizations]);
 
   useEffect(() => {
     const root = contentRef.current;
@@ -700,9 +1344,13 @@ function AnnotatedAssistantMessage({
         anchorEnd,
         anchorText,
         anchorContextBefore: renderedText.slice(Math.max(0, anchorStart - 240), anchorStart),
-        anchorContextAfter: renderedText.slice(anchorEnd, Math.min(renderedText.length, anchorEnd + 240)),
+        anchorContextAfter: renderedText.slice(
+          anchorEnd,
+          Math.min(renderedText.length, anchorEnd + 240),
+        ),
+        previewHtml: buildSelectionPreviewHtml(range),
         top: Math.min(window.innerHeight - 260, rect.bottom + 10),
-        left: Math.min(window.innerWidth - 360, Math.max(16, rect.left)),
+        left: Math.min(window.innerWidth - 420, Math.max(16, rect.left)),
       });
     };
 
@@ -715,12 +1363,12 @@ function AnnotatedAssistantMessage({
     };
   }, [content]);
 
-  const handleCreateClarification = async (question: string) => {
-    if (!selection || !conversationId) {
-      return;
+  const resolveSelectionAnchor = () => {
+    if (!selection) {
+      return null;
     }
 
-    const resolvedSourceAnchor =
+    return (
       resolveAnchorWithContext(
         content,
         selection.anchorText,
@@ -728,9 +1376,20 @@ function AnnotatedAssistantMessage({
         selection.anchorContextAfter,
       ) ?? {
         anchorStart: Math.max(0, content.indexOf(selection.anchorText)),
-        anchorEnd:
-          Math.max(0, content.indexOf(selection.anchorText)) + selection.anchorText.length,
-      };
+        anchorEnd: Math.max(0, content.indexOf(selection.anchorText)) + selection.anchorText.length,
+      }
+    );
+  };
+
+  const handleCreateClarification = async (question: string) => {
+    if (!selection || !conversationId) {
+      return;
+    }
+
+    const resolvedSourceAnchor = resolveSelectionAnchor();
+    if (!resolvedSourceAnchor) {
+      return;
+    }
 
     await createClarificationMutation.mutateAsync({
       projectId: message.projectId ?? activeProjectId ?? undefined,
@@ -747,6 +1406,35 @@ function AnnotatedAssistantMessage({
     window.getSelection()?.removeAllRanges();
   };
 
+  const handleCreateVisualization = async (
+    prompt: string,
+    artifactType: TVisualizationArtifactType,
+  ) => {
+    if (!selection || !conversationId) {
+      return;
+    }
+
+    const resolvedSourceAnchor = resolveSelectionAnchor();
+    if (!resolvedSourceAnchor) {
+      return;
+    }
+
+    await createVisualizationMutation.mutateAsync({
+      projectId: message.projectId ?? activeProjectId ?? undefined,
+      conversationId,
+      parentMessageId: message.messageId ?? '',
+      anchorStart: resolvedSourceAnchor.anchorStart,
+      anchorEnd: resolvedSourceAnchor.anchorEnd,
+      anchorText: selection.anchorText,
+      anchorContextBefore: selection.anchorContextBefore,
+      anchorContextAfter: selection.anchorContextAfter,
+      prompt,
+      artifactType,
+    });
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
   return (
     <div className="relative">
       <div ref={contentRef}>
@@ -754,11 +1442,17 @@ function AnnotatedAssistantMessage({
       </div>
       {selection
         ? createPortal(
-            <Composer
+            <SelectionComposer
               selection={selection}
-              pending={createClarificationMutation.isLoading}
+              conversationId={conversationId ?? ''}
+              parentMessageId={message.messageId ?? ''}
+              projectId={message.projectId ?? activeProjectId ?? null}
+              existingClarifications={selectionClarifications}
+              clarificationPending={createClarificationMutation.isLoading}
+              visualizationPending={createVisualizationMutation.isLoading}
               onCancel={() => setSelection(null)}
-              onSubmit={handleCreateClarification}
+              onSubmitClarification={handleCreateClarification}
+              onSubmitVisualization={handleCreateVisualization}
             />,
             document.body,
           )
@@ -767,7 +1461,7 @@ function AnnotatedAssistantMessage({
         <button
           type="button"
           className={cn(
-            'pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-dashed border-border-light bg-surface-primary/70 px-3 py-1 text-xs text-text-secondary opacity-0 transition group-hover/message-render:opacity-100',
+            'bg-surface-primary/70 pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-dashed border-border-light px-3 py-1 text-xs text-text-secondary opacity-0 transition group-hover/message-render:opacity-100',
             !content && 'hidden',
           )}
         >
@@ -777,33 +1471,53 @@ function AnnotatedAssistantMessage({
       ) : null}
       {slots.map((slot) =>
         createPortal(
-          <ClarificationThread
-            key={slot.slotId}
-            group={slot.group}
-            parentText={content}
-            conversationId={conversationId ?? ''}
-            parentMessageId={message.messageId ?? ''}
-          />,
+          <div key={slot.slotId} className="space-y-3">
+            {renderIntegratedVisualizations(
+              slot.group,
+              conversationId ?? '',
+              message.messageId ?? '',
+            )}
+            <InlineThread
+              group={slot.group}
+              parentText={content}
+              conversationId={conversationId ?? ''}
+              parentMessageId={message.messageId ?? ''}
+              projectId={message.projectId ?? activeProjectId ?? null}
+            />
+          </div>,
           slot.container,
         ),
       )}
       {brokenGroups.length > 0 ? (
         <div className="mt-3 space-y-3">
           {brokenGroups.map((group) => (
-            <div key={group.key} className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3">
+            <div
+              key={group.key}
+              className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3"
+            >
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
                 {localize('com_ui_broken_anchor')}
               </div>
-              {group.clarifications.map((clarification) => (
-                <ClarificationBlock
-                  key={clarification.clarificationId}
-                  broken
-                  parentText={content}
-                  conversationId={conversationId ?? ''}
-                  parentMessageId={message.messageId ?? ''}
-                  clarification={clarification}
-                />
-              ))}
+              <div className="space-y-3">
+                {group.clarifications.map((clarification) => (
+                  <ClarificationBlock
+                    key={clarification.clarificationId}
+                    broken
+                    parentText={content}
+                    conversationId={conversationId ?? ''}
+                    parentMessageId={message.messageId ?? ''}
+                    clarification={clarification}
+                  />
+                ))}
+                {group.visualizations.map((visualization) => (
+                  <VisualizationCard
+                    key={visualization.visualizationId}
+                    visualization={visualization}
+                    conversationId={conversationId ?? ''}
+                    parentMessageId={message.messageId ?? ''}
+                  />
+                ))}
+              </div>
             </div>
           ))}
         </div>

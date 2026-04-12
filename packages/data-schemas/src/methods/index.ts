@@ -30,7 +30,9 @@ import { createCategoriesMethods, type CategoriesMethods } from './categories';
 import { createPresetMethods, type PresetMethods } from './preset';
 import { createProjectMethods, type ProjectMethods } from './project';
 import { createProjectSourceMethods, type ProjectSourceMethods } from './projectSource';
+import { createDocumentMethods, type DocumentMethods } from './document';
 import { createClarificationMethods, type ClarificationMethods } from './clarification';
+import { createVisualizationMethods, type VisualizationMethods } from './visualization';
 import { createMessageRevisionMethods, type MessageRevisionMethods } from './messageRevision';
 /* Tier 2 — Moderate (service deps injected) */
 import { createConversationTagMethods, type ConversationTagMethods } from './conversationTag';
@@ -81,7 +83,9 @@ export type AllMethods = UserMethods &
   PresetMethods &
   ProjectMethods &
   ProjectSourceMethods &
+  DocumentMethods &
   ClarificationMethods &
+  VisualizationMethods &
   MessageRevisionMethods &
   ConversationTagMethods &
   MessageMethods &
@@ -203,7 +207,9 @@ export function createMethods(
     ...createPresetMethods(mongoose),
     ...createProjectMethods(mongoose),
     ...createProjectSourceMethods(mongoose),
+    ...createDocumentMethods(mongoose),
     ...createClarificationMethods(mongoose),
+    ...createVisualizationMethods(mongoose),
     ...createMessageRevisionMethods(mongoose),
     /* Tier 2 */
     ...createConversationTagMethods(mongoose),
@@ -246,6 +252,7 @@ export type {
   PresetMethods,
   ProjectMethods,
   ProjectSourceMethods,
+  DocumentMethods,
   ClarificationMethods,
   MessageRevisionMethods,
   ConversationTagMethods,

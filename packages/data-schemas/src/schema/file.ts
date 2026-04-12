@@ -76,7 +76,7 @@ const file: Schema<IMongoFile> = new Schema(
     width: Number,
     height: Number,
     metadata: {
-      fileIdentifier: String,
+      type: Schema.Types.Mixed,
     },
     expiresAt: {
       type: Date,

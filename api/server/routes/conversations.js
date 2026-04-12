@@ -3,6 +3,7 @@ const { logger } = require('@librechat/data-schemas');
 const {
   createClarification,
   listClarifications,
+  suggestClarificationOptions,
 } = require('@librechat/api');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
 const db = require('~/models');
@@ -56,6 +57,18 @@ router.post('/:conversationId/clarifications', async (req, res) => {
       conversationId: req.params.conversationId,
     });
     res.status(201).json(clarification);
+  } catch (error) {
+    handleClarificationError(res, error);
+  }
+});
+
+router.post('/:conversationId/clarifications/options', async (req, res) => {
+  try {
+    const suggestions = await suggestClarificationOptions(deps, req.user.id, {
+      ...req.body,
+      conversationId: req.params.conversationId,
+    });
+    res.status(200).json(suggestions);
   } catch (error) {
     handleClarificationError(res, error);
   }

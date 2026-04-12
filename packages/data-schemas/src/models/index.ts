@@ -6,7 +6,15 @@ import { createConversationModel } from './convo';
 import { createMessageModel } from './message';
 import { createProjectModel } from './project';
 import { createProjectSourceModel } from './projectSource';
+import {
+  createDocumentClarificationModel,
+  createDocumentOverlayModel,
+  createDocumentRenderVersionModel,
+  createDocumentVisualizationModel,
+  createStudyDocumentModel,
+} from './document';
 import { createClarificationModel } from './clarification';
+import { createVisualizationModel } from './visualization';
 import { createMessageRevisionModel } from './messageRevision';
 import { createAgentModel } from './agent';
 import { createAgentApiKeyModel } from './agentApiKey';
@@ -46,7 +54,13 @@ export function createModels(mongoose: typeof import('mongoose')) {
     Message: createMessageModel(mongoose),
     Project: createProjectModel(mongoose),
     ProjectSource: createProjectSourceModel(mongoose),
+    StudyDocument: createStudyDocumentModel(mongoose),
+    DocumentRenderVersion: createDocumentRenderVersionModel(mongoose),
+    DocumentOverlay: createDocumentOverlayModel(mongoose),
+    DocumentClarification: createDocumentClarificationModel(mongoose),
+    DocumentVisualization: createDocumentVisualizationModel(mongoose),
     MessageClarification: createClarificationModel(mongoose),
+    VisualizationArtifact: createVisualizationModel(mongoose),
     MessageRevision: createMessageRevisionModel(mongoose),
     Agent: createAgentModel(mongoose),
     AgentApiKey: createAgentApiKeyModel(mongoose),

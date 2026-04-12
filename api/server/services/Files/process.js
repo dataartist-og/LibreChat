@@ -623,6 +623,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
         filepath: filepath ?? file.path,
         source: FileSources.text,
         filename: file.originalname,
+        metadata: fileInfoMetadata,
         model: messageAttachment ? undefined : req.body.model,
         context: messageAttachment ? FileContext.message_attachment : FileContext.agents,
       });
@@ -684,7 +685,16 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     if (shouldUseOCR) {
       const ocrResult = await resolveDocumentText();
       if (ocrResult) {
-        const { text, bytes, filepath: ocrFileURL } = ocrResult;
+        const { text, bytes, filepath: ocrFileURL, pages } = ocrResult;
+        if (pages?.length) {
+          fileInfoMetadata = {
+            ...fileInfoMetadata,
+            ocr: {
+              provider: ocrFileURL,
+              pages,
+            },
+          };
+        }
         return await createTextFile({ text, bytes, filepath: ocrFileURL });
       }
       throw new Error(

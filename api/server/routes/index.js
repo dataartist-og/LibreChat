@@ -23,6 +23,8 @@ const convos = require('./convos');
 const projects = require('./projects');
 const conversations = require('./conversations');
 const clarifications = require('./clarifications');
+const documents = require('./documents');
+const visualizations = require('./visualizations');
 const config = require('./config');
 const agents = require('./agents');
 const roles = require('./roles');
@@ -58,6 +60,8 @@ module.exports = {
   projects,
   conversations,
   clarifications,
+  documents,
+  visualizations,
   search,
   config,
   models,

@@ -35,3 +35,42 @@ export const useMessageRevisionsQuery = <TData = t.TMessageRevision[]>(
       ...config,
     },
   );
+
+export const useClarificationSuggestionsQuery = <TData = t.TClarificationSuggestionSet>(
+  payload: t.TClarificationSuggestionRequest | null | undefined,
+  config?: UseQueryOptions<t.TClarificationSuggestionSet, unknown, TData>,
+): QueryObserverResult<TData, unknown> =>
+  useQuery<t.TClarificationSuggestionSet, unknown, TData>(
+    [
+      QueryKeys.clarificationSuggestions,
+      payload?.conversationId,
+      payload?.parentMessageId,
+      payload?.anchorStart,
+      payload?.anchorEnd,
+      payload?.anchorText,
+      payload?.existingClarifications
+        ?.map((clarification) => `${clarification.question}:${clarification.answer}`)
+        .join('|'),
+    ],
+    () =>
+      dataService.suggestClarifications(
+        payload ?? {
+          conversationId: '',
+          parentMessageId: '',
+          anchorStart: 0,
+          anchorEnd: 0,
+          anchorText: '',
+          anchorContextBefore: '',
+          anchorContextAfter: '',
+        },
+      ),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: false,
+      staleTime: 60 * 1000,
+      enabled: !!payload?.conversationId && !!payload?.parentMessageId && (config?.enabled ?? true),
+      ...config,
+    },
+  );

@@ -964,6 +964,140 @@ export const clarificationStatusSchema = z.enum(['active', 'collapsed', 'integra
 
 export type TClarificationStatus = z.infer<typeof clarificationStatusSchema>;
 
+export const inlineSuggestionProfileSchema = z.enum([
+  'conceptual',
+  'procedural',
+  'equational',
+  'precise',
+  'mixed',
+]);
+
+export type TInlineSuggestionProfile = z.infer<typeof inlineSuggestionProfileSchema>;
+
+export const visualizationArtifactTypeSchema = z.enum([
+  'html_app',
+  'svg',
+  'image',
+  'mermaid',
+  'markdown_explainer_with_embeds',
+  'json_spec',
+]);
+
+export type TVisualizationArtifactType = z.infer<typeof visualizationArtifactTypeSchema>;
+
+export const visualizationStatusSchema = z.enum(['draft', 'ready', 'failed', 'archived']);
+
+export type TVisualizationStatus = z.infer<typeof visualizationStatusSchema>;
+
+export const visualizationStorageModeSchema = z.enum(['db_inline', 'file_store', 'hybrid']);
+
+export type TVisualizationStorageMode = z.infer<typeof visualizationStorageModeSchema>;
+
+export const visualizationIntegrationStateSchema = z.enum([
+  'nested_only',
+  'integrated',
+  'detached',
+]);
+
+export type TVisualizationIntegrationState = z.infer<typeof visualizationIntegrationStateSchema>;
+
+export const documentSourceKindSchema = z.enum([
+  'pdf',
+  'markdown',
+  'text',
+  'docx',
+  'epub',
+  'other',
+]);
+
+export const documentIngestionStatusSchema = z.enum(['pending', 'processing', 'ready', 'failed']);
+
+export const documentIngestionStrategySchema = z.enum([
+  'ocr_markdown',
+  'document_parser',
+  'markdown_direct',
+  'text_direct',
+  'plain_text',
+]);
+
+export const documentBlockTypeSchema = z.enum([
+  'heading',
+  'paragraph',
+  'list',
+  'table',
+  'blockquote',
+  'code',
+  'math_block',
+  'figure',
+  'caption',
+  'page_break',
+]);
+
+export const documentClarificationStatusSchema = z.enum(['active', 'integrated', 'archived']);
+
+export const tDocumentAnchorSchema = z.object({
+  blockId: z.string(),
+  blockType: documentBlockTypeSchema,
+  anchorText: z.string(),
+  anchorContextBefore: z.string(),
+  anchorContextAfter: z.string(),
+  startOffset: z.number(),
+  endOffset: z.number(),
+  headingPath: z.array(z.string()),
+  pageStart: z.number().nullable().optional(),
+  pageEnd: z.number().nullable().optional(),
+});
+
+export type TDocumentAnchor = z.infer<typeof tDocumentAnchorSchema>;
+
+export const tDocumentBlockSchema = z.object({
+  blockId: z.string(),
+  type: documentBlockTypeSchema,
+  assetId: z.string().nullable().optional(),
+  level: z.number().nullable().optional(),
+  title: z.string().nullable().optional(),
+  sourcePageStart: z.number().nullable().optional(),
+  sourcePageEnd: z.number().nullable().optional(),
+  contentMarkdown: z.string(),
+  contentHtml: z.string().nullable().optional(),
+  plainText: z.string(),
+  anchorPath: z.string(),
+});
+
+export type TDocumentBlock = z.infer<typeof tDocumentBlockSchema>;
+
+export const tDocumentOutlineItemSchema = z.object({
+  id: z.string(),
+  blockId: z.string(),
+  depth: z.number(),
+  title: z.string(),
+  anchorPath: z.string(),
+});
+
+export type TDocumentOutlineItem = z.infer<typeof tDocumentOutlineItemSchema>;
+
+export const tDocumentIRSchema = z.object({
+  documentId: z.string(),
+  projectId: z.string().nullable().optional(),
+  sourceFileId: z.string(),
+  sourceType: z.string(),
+  title: z.string(),
+  blocks: z.array(tDocumentBlockSchema),
+  outline: z.array(tDocumentOutlineItemSchema),
+  citations: z.array(DocumentType).optional(),
+  assets: z.array(DocumentType).optional(),
+  mathSpans: z.array(DocumentType).optional(),
+  anchorIndex: z.record(
+    z.object({
+      blockId: z.string(),
+      type: documentBlockTypeSchema,
+    }),
+  ),
+  renderVersion: z.number(),
+});
+
+export type TDocumentIR = z.infer<typeof tDocumentIRSchema>;
+
 export const tProjectSchema = z.object({
   projectId: z.string(),
   ownerUserId: z.string(),
@@ -1015,6 +1149,215 @@ export const tClarificationSchema = z.object({
 });
 
 export type TClarification = z.infer<typeof tClarificationSchema>;
+
+export const tExistingClarificationContextSchema = z.object({
+  question: z.string(),
+  answer: z.string(),
+});
+
+export type TExistingClarificationContext = z.infer<typeof tExistingClarificationContextSchema>;
+
+export const tClarificationSuggestionSchema = z.object({
+  label: z.string(),
+  proposedQuestion: z.string(),
+  understandingGain: z.string(),
+  reasoning: z.string(),
+});
+
+export type TClarificationSuggestion = z.infer<typeof tClarificationSuggestionSchema>;
+
+export const tClarificationSuggestionSetSchema = z.object({
+  contentProfile: inlineSuggestionProfileSchema,
+  focusSummary: z.string(),
+  suggestions: z.array(tClarificationSuggestionSchema).min(1),
+});
+
+export type TClarificationSuggestionSet = z.infer<typeof tClarificationSuggestionSetSchema>;
+
+export const tVisualizationGenerationMetadataSchema = z.object({
+  error: z.string().nullable().optional(),
+  rawResponse: z.string().nullable().optional(),
+  originalMimeType: z.string().nullable().optional(),
+  sanitizedMimeType: z.string().nullable().optional(),
+  storageByteSize: z.number().optional(),
+  warnings: z.array(z.string()).optional(),
+});
+
+export type TVisualizationGenerationMetadata = z.infer<
+  typeof tVisualizationGenerationMetadataSchema
+>;
+
+export const tVisualizationSchema = z.object({
+  visualizationId: z.string(),
+  projectId: z.string().nullable().optional(),
+  conversationId: z.string(),
+  parentMessageId: z.string(),
+  anchorStart: z.number(),
+  anchorEnd: z.number(),
+  anchorText: z.string(),
+  anchorContextBefore: z.string(),
+  anchorContextAfter: z.string(),
+  anchorPath: z.string().nullable().optional(),
+  inlineThreadId: z.string().nullable().optional(),
+  parentVisualizationId: z.string().nullable().optional(),
+  rootVisualizationId: z.string().nullable().optional(),
+  title: z.string(),
+  description: z.string(),
+  artifactType: visualizationArtifactTypeSchema,
+  status: visualizationStatusSchema,
+  storageMode: visualizationStorageModeSchema,
+  canonicalSourceText: z.string(),
+  canonicalSourceMimeType: z.string().nullable().optional(),
+  compiledRenderText: z.string().nullable().optional(),
+  compiledRenderMimeType: z.string(),
+  compiledRenderStoragePath: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
+  sourcePrompt: z.string(),
+  generationModel: z.string().nullable().optional(),
+  generationMetadata: tVisualizationGenerationMetadataSchema.nullable().optional(),
+  integrationState: visualizationIntegrationStateSchema,
+  isLatestVersion: z.boolean(),
+  versionNumber: z.number(),
+  createdByUserId: z.string(),
+  integratedAt: z.string().nullable().optional(),
+  deletedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TVisualization = z.infer<typeof tVisualizationSchema>;
+
+export const tVisualizationSuggestionSchema = z.object({
+  label: z.string(),
+  artifactType: visualizationArtifactTypeSchema,
+  proposedPrompt: z.string(),
+  understandingGain: z.string(),
+  reasoning: z.string(),
+});
+
+export type TVisualizationSuggestion = z.infer<typeof tVisualizationSuggestionSchema>;
+
+export const tVisualizationSuggestionSetSchema = z.object({
+  contentProfile: inlineSuggestionProfileSchema,
+  focusSummary: z.string(),
+  suggestions: z.array(tVisualizationSuggestionSchema).min(1),
+});
+
+export type TVisualizationSuggestionSet = z.infer<typeof tVisualizationSuggestionSetSchema>;
+
+export const tStudyDocumentSchema = z.object({
+  documentId: z.string(),
+  projectId: z.string().nullable().optional(),
+  sourceFileId: z.string(),
+  title: z.string(),
+  sourceMimeType: z.string(),
+  sourceKind: documentSourceKindSchema,
+  ingestionStatus: documentIngestionStatusSchema,
+  ingestionStrategy: documentIngestionStrategySchema,
+  activeRenderVersionId: z.string().nullable().optional(),
+  activeOverlayId: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TStudyDocument = z.infer<typeof tStudyDocumentSchema>;
+
+export const tDocumentRenderVersionSchema = z.object({
+  renderVersionId: z.string(),
+  documentId: z.string(),
+  versionNumber: z.number(),
+  documentIrJson: tDocumentIRSchema,
+  renderHtml: z.string().nullable().optional(),
+  outlineJson: z.array(tDocumentOutlineItemSchema),
+  assetsJson: z.array(DocumentType).optional(),
+  createdByUserId: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDocumentRenderVersion = z.infer<typeof tDocumentRenderVersionSchema>;
+
+export const tDocumentOverlaySchema = z.object({
+  overlayId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  overlayVersionNumber: z.number(),
+  overlayJson: z.object({
+    integratedClarificationIds: z.array(z.string()),
+    integratedVisualizationIds: z.array(z.string()),
+  }),
+  createdByUserId: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDocumentOverlay = z.infer<typeof tDocumentOverlaySchema>;
+
+export const tDocumentClarificationSchema = z.object({
+  clarificationId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  overlayId: z.string().nullable().optional(),
+  anchor: tDocumentAnchorSchema,
+  clarificationQuestion: z.string(),
+  clarificationAnswer: z.string(),
+  promptText: z.string().nullable().optional(),
+  modelProvider: z.string().nullable().optional(),
+  modelName: z.string().nullable().optional(),
+  status: documentClarificationStatusSchema,
+  integratedAt: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDocumentClarification = z.infer<typeof tDocumentClarificationSchema>;
+
+export const tDocumentVisualizationSchema = z.object({
+  visualizationId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  overlayId: z.string().nullable().optional(),
+  anchor: tDocumentAnchorSchema,
+  parentVisualizationId: z.string().nullable().optional(),
+  rootVisualizationId: z.string().nullable().optional(),
+  title: z.string(),
+  description: z.string(),
+  artifactType: visualizationArtifactTypeSchema,
+  status: visualizationStatusSchema,
+  storageMode: visualizationStorageModeSchema,
+  canonicalSourceText: z.string(),
+  canonicalSourceMimeType: z.string().nullable().optional(),
+  compiledRenderText: z.string().nullable().optional(),
+  compiledRenderMimeType: z.string(),
+  compiledRenderStoragePath: z.string().nullable().optional(),
+  sourcePrompt: z.string(),
+  generationModel: z.string().nullable().optional(),
+  generationMetadata: tVisualizationGenerationMetadataSchema.nullable().optional(),
+  integrationState: visualizationIntegrationStateSchema,
+  isLatestVersion: z.boolean(),
+  versionNumber: z.number(),
+  integratedAt: z.string().nullable().optional(),
+  deletedAt: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDocumentVisualization = z.infer<typeof tDocumentVisualizationSchema>;
+
+export const tDocumentWorkspaceSchema = z.object({
+  document: tStudyDocumentSchema,
+  renderVersion: tDocumentRenderVersionSchema,
+  overlay: tDocumentOverlaySchema.nullable(),
+  clarifications: z.array(tDocumentClarificationSchema),
+  visualizations: z.array(tDocumentVisualizationSchema),
+});
+
+export type TDocumentWorkspace = z.infer<typeof tDocumentWorkspaceSchema>;
 
 export const tMessageRevisionSchema = z.object({
   revisionId: z.string(),

@@ -62,12 +62,14 @@ import type {
 import { logger as mockLogger } from '@librechat/data-schemas';
 import { readFileAsBuffer } from '~/utils/files';
 import {
+  countCaptionCandidates,
   uploadDocumentToMistral,
   uploadAzureMistralOCR,
   deleteMistralFile,
   uploadMistralOCR,
   getSignedUrl,
   performOCR,
+  processOCRResult,
 } from './crud';
 
 interface MockReadStream extends Partial<Readable> {
@@ -277,6 +279,58 @@ describe('MistralOCR Service', () => {
         'Error deleting Mistral file file-789:',
         expect.any(Error),
       );
+    });
+  });
+
+  describe('processOCRResult', () => {
+    it('counts figure and table captions from OCR markdown', () => {
+      expect(
+        countCaptionCandidates(['Figure 1: Diagram', '', 'Fig. 2. Another view', '', 'Table 3: Metrics'].join('\n')),
+      ).toBe(3);
+    });
+
+    it('adds a reusable PDF page snapshot when captioned pages have fewer assets than captions', async () => {
+      const renderPageSnapshot = jest.fn().mockResolvedValue('rendered-page-base64');
+
+      const result = await processOCRResult(
+        {
+          model: 'mistral-ocr-latest',
+          pages: [
+            {
+              index: 0,
+              markdown: ['Figure 1: Overview.', '', 'Table 1: Results.'].join('\n'),
+              images: [],
+              dimensions: { dpi: 200, height: 1200, width: 900 },
+            },
+          ],
+          usage_info: {
+            pages_processed: 1,
+            doc_size_bytes: 1024,
+          },
+        },
+        {
+          sourceFilePath: '/tmp/upload/document.pdf',
+          renderPageSnapshot,
+        },
+      );
+
+      expect(renderPageSnapshot).toHaveBeenCalledWith({
+        filePath: '/tmp/upload/document.pdf',
+        pageNumber: 1,
+      });
+      expect(result.images).toEqual(['rendered-page-base64']);
+      expect(result.pages).toEqual([
+        expect.objectContaining({
+          index: 0,
+          images: [
+            expect.objectContaining({
+              id: 'page-snapshot-1',
+              imageBase64: 'rendered-page-base64',
+              reusable: true,
+            }),
+          ],
+        }),
+      ]);
     });
   });
 
@@ -549,6 +603,24 @@ describe('MistralOCR Service', () => {
         filepath: 'mistral_ocr',
         text: expect.stringContaining('# PAGE 1'),
         images: ['base64image1', 'base64image2'],
+        pages: expect.arrayContaining([
+          expect.objectContaining({
+            index: 0,
+            images: expect.arrayContaining([
+              expect.objectContaining({
+                imageBase64: 'base64image1',
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            index: 1,
+            images: expect.arrayContaining([
+              expect.objectContaining({
+                imageBase64: 'base64image2',
+              }),
+            ]),
+          }),
+        ]),
       });
     });
 
@@ -659,6 +731,16 @@ describe('MistralOCR Service', () => {
         filepath: 'mistral_ocr',
         text: expect.stringContaining('Image OCR result'),
         images: ['imgbase64'],
+        pages: expect.arrayContaining([
+          expect.objectContaining({
+            index: 0,
+            images: expect.arrayContaining([
+              expect.objectContaining({
+                imageBase64: 'imgbase64',
+              }),
+            ]),
+          }),
+        ]),
       });
     });
 
@@ -1660,6 +1742,12 @@ describe('MistralOCR Service', () => {
           filepath: 'mistral_ocr',
           text: 'OCR content\n\n',
           images: [],
+          pages: expect.arrayContaining([
+            expect.objectContaining({
+              index: 0,
+              images: [],
+            }),
+          ]),
         });
 
         // Verify delete was attempted
@@ -2203,6 +2291,16 @@ describe('MistralOCR Service', () => {
         filepath: 'azure_mistral_ocr',
         text: 'Azure OCR content\n\n',
         images: ['azure-base64'],
+        pages: expect.arrayContaining([
+          expect.objectContaining({
+            index: 0,
+            images: expect.arrayContaining([
+              expect.objectContaining({
+                imageBase64: 'azure-base64',
+              }),
+            ]),
+          }),
+        ]),
       });
     });
 

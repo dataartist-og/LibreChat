@@ -224,6 +224,35 @@ y$ which spans lines`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 
+  test('normalizes malformed OCR big delimiters', () => {
+    const content = '$f=\\\\big{(}f^{1},\\\\ldots,f^{m}\\\\big{)}$';
+    const expected = '$f=\\\\big(f^{1},\\\\ldots,f^{m}\\\\big)$';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('strips stray OCR linebreak commands before punctuation', () => {
+    const content = 'Boundary of edge \\\\.';
+    const expected = 'Boundary of edge .';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('preserves numeric inline math expressions that would otherwise look like currency', () => {
+    const content = 'The neighbourhood is centred at $0 \\in \\mathbb{R}^n$ with edge $2\\varepsilon$.';
+    const expected = 'The neighbourhood is centred at $0 \\in \\mathbb{R}^n$ with edge $2\\varepsilon$.';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('preserves percentage-valued inline math expressions', () => {
+    const content = 'GATE improves performance by $1.3\\%$ and $1.9\\%$.';
+    expect(preprocessLaTeX(content)).toBe(content);
+  });
+
+  test('preserves OCR paragraphs that mix prose with numeric inline math spans', () => {
+    const content =
+      'Moreover, we can assume $\\varphi(U) = C_\\varepsilon^m(0)$, $\\varphi(V) = C_\\varepsilon^n(0)$, with the same $\\varepsilon$, where $C_\\varepsilon^n(0)$ denotes the cubic neighbourhood centred at $0 \\in \\mathbb{R}^n$ of edge $2\\varepsilon$.';
+    expect(preprocessLaTeX(content)).toBe(content);
+  });
+
   test('normalizes inline bracket delimiters', () => {
     const content = 'Claude-style inline math: \\(x^2 + y^2\\)';
     const expected = 'Claude-style inline math: $x^2 + y^2$';
@@ -233,6 +262,28 @@ y$ which spans lines`;
   test('normalizes block bracket delimiters', () => {
     const content = 'ChatGPT-style block math:\\[x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}\\]';
     const expected = 'ChatGPT-style block math:\n$$\nx = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}\n$$\n';
+    expect(preprocessLaTeX(content)).toBe(expected);
+  });
+
+  test('preserves list-item prose around block math without introducing loose blank lines', () => {
+    const content = `- On number fields, with the Arakelov degree
+  \\[
+  \\deg\\left(\\sum_p n_p[p]\\right) = 0
+  \\]
+  principal divisors have degree \\$0\\$ by the product formula
+  \\[
+  \\sum_v n_v \\log |f|_v = 0
+  \\]
+  which is the exact analog of \\$\\deg \\operatorname{div}(f)=0\\$.`;
+    const expected = `- On number fields, with the Arakelov degree
+  $$
+  \\deg\\left(\\sum_p n_p[p]\\right) = 0
+  $$
+  principal divisors have degree \\$0\\$ by the product formula
+  $$
+  \\sum_v n_v \\log |f|_v = 0
+  $$
+  which is the exact analog of \\$\\deg \\operatorname{div}(f)=0\\$.`;
     expect(preprocessLaTeX(content)).toBe(expected);
   });
 

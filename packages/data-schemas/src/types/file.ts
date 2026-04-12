@@ -1,5 +1,39 @@
 import { Document, Types } from 'mongoose';
 
+export interface IOCRImageMetadata {
+  id: string;
+  topLeftX: number;
+  topLeftY: number;
+  bottomRightX: number;
+  bottomRightY: number;
+  imageBase64: string;
+  imageAnnotation?: string | null;
+  reusable?: boolean | null;
+}
+
+export interface IOCRPageDimensions {
+  dpi: number;
+  height: number;
+  width: number;
+}
+
+export interface IOCRPageMetadata {
+  index: number;
+  dimensions: IOCRPageDimensions;
+  images: IOCRImageMetadata[];
+}
+
+export interface IOCRFileMetadata {
+  provider: string;
+  pages: IOCRPageMetadata[];
+}
+
+export interface IFileMetadata {
+  fileIdentifier?: string;
+  ocr?: IOCRFileMetadata;
+  [key: string]: unknown;
+}
+
 export interface IMongoFile extends Omit<Document, 'model'> {
   user: Types.ObjectId;
   projectId?: string;
@@ -20,9 +54,7 @@ export interface IMongoFile extends Omit<Document, 'model'> {
   model?: string;
   width?: number;
   height?: number;
-  metadata?: {
-    fileIdentifier?: string;
-  };
+  metadata?: IFileMetadata;
   expiresAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;

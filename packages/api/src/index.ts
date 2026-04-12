@@ -39,6 +39,10 @@ export * from './agents';
 export * from './projects';
 /* Clarifications */
 export * from './clarifications';
+/* Visualizations */
+export * from './visualizations';
+/* Documents */
+export * from './documents';
 /* Prompts */
 export * from './prompts';
 /* Endpoints */

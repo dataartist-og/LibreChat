@@ -1,0 +1,180 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { MutationKeys, QueryKeys, dataService } from 'librechat-data-provider';
+import type { UseMutationResult } from '@tanstack/react-query';
+import type t from 'librechat-data-provider';
+
+type DocumentMutationContext = {
+  documentId: string;
+};
+
+function invalidateDocumentQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  documentId: string,
+) {
+  queryClient.invalidateQueries([QueryKeys.documents]);
+  queryClient.invalidateQueries([QueryKeys.documentWorkspace, documentId]);
+}
+
+export const useCreateStudyDocumentMutation = (): UseMutationResult<
+  t.TDocumentWorkspace,
+  unknown,
+  t.TStudyDocumentCreateRequest,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.createStudyDocument], {
+    mutationFn: (payload) => dataService.createStudyDocument(payload),
+    onMutate: async (payload) => ({
+      documentId: payload.sourceFileId,
+    }),
+    onSuccess: (workspace) => {
+      queryClient.invalidateQueries([QueryKeys.documents]);
+      queryClient.setQueryData(
+        [QueryKeys.documentWorkspace, workspace.document.documentId],
+        workspace,
+      );
+    },
+  });
+};
+
+export const useReingestStudyDocumentMutation = (): UseMutationResult<
+  t.TDocumentWorkspace,
+  unknown,
+  { documentId: string },
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.reingestStudyDocument], {
+    mutationFn: ({ documentId }) => dataService.reingestStudyDocument(documentId),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (workspace, _payload, context) => {
+      const documentId = context?.documentId ?? workspace.document.documentId;
+      queryClient.setQueryData([QueryKeys.documentWorkspace, documentId], workspace);
+      invalidateDocumentQueries(queryClient, documentId);
+    },
+  });
+};
+
+export const useCreateDocumentClarificationMutation = (): UseMutationResult<
+  t.TDocumentClarification,
+  unknown,
+  t.TDocumentClarificationCreateRequest,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.createDocumentClarification], {
+    mutationFn: (payload) => dataService.createDocumentClarification(payload),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_clarification, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};
+
+export const useIntegrateDocumentClarificationMutation = (): UseMutationResult<
+  t.TDocumentClarification,
+  unknown,
+  t.TDocumentClarificationIntegrateRequest & DocumentMutationContext,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.integrateDocumentClarification], {
+    mutationFn: ({ documentId: _documentId, ...payload }) =>
+      dataService.integrateDocumentClarification(payload),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_clarification, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};
+
+export const useArchiveDocumentClarificationMutation = (): UseMutationResult<
+  t.TDocumentClarification,
+  unknown,
+  { clarificationId: string } & DocumentMutationContext,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.archiveDocumentClarification], {
+    mutationFn: ({ clarificationId }) => dataService.archiveDocumentClarification(clarificationId),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_clarification, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};
+
+export const useCreateDocumentVisualizationMutation = (): UseMutationResult<
+  t.TDocumentVisualization,
+  unknown,
+  t.TDocumentVisualizationCreateRequest,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.createDocumentVisualization], {
+    mutationFn: (payload) => dataService.createDocumentVisualization(payload),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_visualization, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};
+
+export const useIntegrateDocumentVisualizationMutation = (): UseMutationResult<
+  t.TDocumentVisualization,
+  unknown,
+  t.TDocumentVisualizationIntegrateRequest & DocumentMutationContext,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.integrateDocumentVisualization], {
+    mutationFn: ({ documentId: _documentId, ...payload }) =>
+      dataService.integrateDocumentVisualization(payload),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_visualization, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};
+
+export const useDeleteDocumentVisualizationMutation = (): UseMutationResult<
+  t.TDocumentVisualization,
+  unknown,
+  { visualizationId: string } & DocumentMutationContext,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.deleteDocumentVisualization], {
+    mutationFn: ({ visualizationId }) => dataService.deleteDocumentVisualization(visualizationId),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_visualization, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
+    },
+  });
+};

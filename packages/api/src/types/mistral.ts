@@ -40,6 +40,23 @@ export interface OCRResultPage {
   dimensions: PageDimensions;
 }
 
+export interface OCRStoredImage {
+  id: string;
+  topLeftX: number;
+  topLeftY: number;
+  bottomRightX: number;
+  bottomRightY: number;
+  imageBase64: string;
+  imageAnnotation?: string | null;
+  reusable?: boolean | null;
+}
+
+export interface OCRStoredPage {
+  index: number;
+  dimensions: PageDimensions;
+  images: OCRStoredImage[];
+}
+
 export interface OCRUsageInfo {
   pages_processed: number;
   doc_size_bytes: number;
@@ -79,4 +96,5 @@ export interface MistralOCRUploadResult {
   filepath: string;
   text: string;
   images: string[];
+  pages?: OCRStoredPage[];
 }

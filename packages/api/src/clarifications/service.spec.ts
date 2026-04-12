@@ -1,7 +1,27 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createModels, createMethods } from '@librechat/data-schemas';
-import { integrateClarification, selectClarificationModel } from './service';
+import {
+  integrateClarification,
+  selectClarificationModel,
+  suggestClarificationOptions,
+} from './service';
+
+const mockChatCreate = jest.fn();
+
+jest.mock('openai', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    chat: {
+      completions: {
+        create: mockChatCreate,
+      },
+    },
+    models: {
+      list: jest.fn().mockResolvedValue({ data: [] }),
+    },
+  })),
+}));
 
 describe('selectClarificationModel', () => {
   const originalReverseProxy = process.env.OPENAI_REVERSE_PROXY;
@@ -30,6 +50,7 @@ describe('integrateClarification', () => {
   let methods: ReturnType<typeof createMethods>;
 
   beforeAll(async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
     mongoServer = await MongoMemoryServer.create();
     await mongoose.connect(mongoServer.getUri());
     createModels(mongoose);
@@ -42,8 +63,98 @@ describe('integrateClarification', () => {
   });
 
   beforeEach(async () => {
+    mockChatCreate.mockReset();
     const collections = Object.values(mongoose.connection.collections);
     await Promise.all(collections.map((collection) => collection.deleteMany({})));
+  });
+
+  it('suggests clarification options from the anchored context', async () => {
+    const project = await methods.createProject(userId, {
+      name: 'Thermodynamics',
+    });
+
+    await mongoose.models.Conversation.create({
+      conversationId,
+      user: userId,
+      projectId: project.projectId,
+      title: 'Entropy',
+      endpoint: 'openAI',
+    });
+
+    await mongoose.models.Message.create({
+      messageId: 'message-1',
+      conversationId,
+      parentMessageId: 'root',
+      user: userId,
+      sender: 'Assistant',
+      isCreatedByUser: false,
+      projectId: project.projectId,
+      text: 'Entropy increases in isolated systems.',
+    });
+
+    mockChatCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              content_profile: 'conceptual',
+              focus_summary: 'The term likely needs a local definition.',
+              suggestions: [
+                {
+                  label: 'Local meaning',
+                  proposed_question: 'What does entropy mean in this sentence?',
+                  understanding_gain: 'It would clarify the exact sense of the term here.',
+                  reasoning: 'The highlighted term is a dense concept word.',
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+
+    const suggestions = await suggestClarificationOptions(
+      {
+        getConvo: methods.getConvo,
+        getMessages: methods.getMessages,
+        getMessage: methods.getMessage,
+        createClarification: methods.createClarification,
+        listClarifications: methods.listClarifications,
+        getClarification: methods.getClarification,
+        updateClarification: methods.updateClarification,
+        createMessageRevision: methods.createMessageRevision,
+        listMessageRevisions: methods.listMessageRevisions,
+        saveMessage: methods.saveMessage,
+        listProjectSources: methods.listProjectSources,
+        getFiles: methods.getFiles,
+      },
+      userId,
+      {
+        projectId: project.projectId,
+        conversationId,
+        parentMessageId: 'message-1',
+        anchorStart: 0,
+        anchorEnd: 7,
+        anchorText: 'Entropy',
+        anchorContextBefore: '',
+        anchorContextAfter: ' increases in isolated systems.',
+        existingClarifications: [
+          {
+            question: 'Why does entropy increase?',
+            answer: 'Because more microscopic states become accessible.',
+          },
+        ],
+      },
+    );
+
+    expect(suggestions.contentProfile).toBe('conceptual');
+    expect(suggestions.suggestions).toHaveLength(1);
+    expect(suggestions.suggestions[0]).toEqual(
+      expect.objectContaining({
+        label: 'Local meaning',
+        proposedQuestion: 'What does entropy mean in this sentence?',
+      }),
+    );
   });
 
   it('updates the parent message and records a message revision', async () => {
@@ -80,7 +191,8 @@ describe('integrateClarification', () => {
       anchorContextBefore: 'Beginning of explanation.',
       anchorContextAfter: ' increases in isolated systems.',
       clarificationQuestion: 'What does entropy mean here?',
-      clarificationAnswer: 'It measures how many microscopic configurations are compatible with the macroscopic state.',
+      clarificationAnswer:
+        'It measures how many microscopic configurations are compatible with the macroscopic state.',
       status: 'active',
     });
 

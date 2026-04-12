@@ -1,6 +1,7 @@
 export * from './Auth';
 export * from './Agents';
 export * from './Clarifications';
+export * from './Documents';
 export * from './Endpoints';
 export * from './Files';
 /* Memories */
@@ -8,6 +9,7 @@ export * from './Memories';
 export * from './Messages';
 export * from './Misc';
 export * from './Projects';
+export * from './Visualizations';
 export * from './Tools';
 export * from './connection';
 export * from './Favorites';

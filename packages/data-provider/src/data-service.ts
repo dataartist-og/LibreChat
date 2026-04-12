@@ -784,8 +784,71 @@ export function updateProjectSource(
   return request.patch(endpoints.projectSourceById(projectId, sourceId), data);
 }
 
-export function deleteProjectSource(projectId: string, sourceId: string): Promise<t.TProjectSource> {
+export function deleteProjectSource(
+  projectId: string,
+  sourceId: string,
+): Promise<t.TProjectSource> {
   return request.delete(endpoints.projectSourceById(projectId, sourceId));
+}
+
+export function listStudyDocuments(
+  params?: t.TStudyDocumentListParams,
+): Promise<t.TStudyDocument[]> {
+  return request.get(endpoints.documents(params));
+}
+
+export function createStudyDocument(
+  payload: t.TStudyDocumentCreateRequest,
+): Promise<t.TDocumentWorkspace> {
+  return request.post(endpoints.documents(), payload);
+}
+
+export function getStudyDocumentWorkspace(documentId: string): Promise<t.TDocumentWorkspace> {
+  return request.get(endpoints.documentById(documentId));
+}
+
+export function reingestStudyDocument(documentId: string): Promise<t.TDocumentWorkspace> {
+  return request.post(endpoints.documentReingest(documentId), {});
+}
+
+export function createDocumentClarification(
+  payload: t.TDocumentClarificationCreateRequest,
+): Promise<t.TDocumentClarification> {
+  const { documentId, ...data } = payload;
+  return request.post(endpoints.documentClarifications(documentId), data);
+}
+
+export function integrateDocumentClarification(
+  payload: t.TDocumentClarificationIntegrateRequest,
+): Promise<t.TDocumentClarification> {
+  const { clarificationId, ...data } = payload;
+  return request.post(endpoints.documentClarificationIntegrate(clarificationId), data);
+}
+
+export function archiveDocumentClarification(
+  clarificationId: string,
+): Promise<t.TDocumentClarification> {
+  return request.delete(endpoints.documentClarificationById(clarificationId));
+}
+
+export function createDocumentVisualization(
+  payload: t.TDocumentVisualizationCreateRequest,
+): Promise<t.TDocumentVisualization> {
+  const { documentId, ...data } = payload;
+  return request.post(endpoints.documentVisualizations(documentId), data);
+}
+
+export function integrateDocumentVisualization(
+  payload: t.TDocumentVisualizationIntegrateRequest,
+): Promise<t.TDocumentVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.documentVisualizationIntegrate(visualizationId), data);
+}
+
+export function deleteDocumentVisualization(
+  visualizationId: string,
+): Promise<t.TDocumentVisualization> {
+  return request.delete(endpoints.documentVisualizationById(visualizationId));
 }
 
 export function listClarifications(
@@ -825,6 +888,82 @@ export function reanchorClarification(
 ): Promise<t.TClarification> {
   const { clarificationId, ...data } = payload;
   return request.post(endpoints.clarificationReanchor(clarificationId), data);
+}
+
+export function suggestClarifications(
+  payload: t.TClarificationSuggestionRequest,
+): Promise<t.TClarificationSuggestionSet> {
+  const { conversationId, ...data } = payload;
+  return request.post(endpoints.clarificationSuggestions(conversationId), data);
+}
+
+export function listVisualizations(
+  params: t.TVisualizationListParams,
+): Promise<t.TVisualization[]> {
+  return request.get(
+    endpoints.visualizations({
+      conversationId: params.conversationId,
+      parentMessageId: params.parentMessageId,
+      includeArchived: params.includeArchived,
+      includeDeleted: params.includeDeleted,
+      includeAllVersions: params.includeAllVersions,
+    }),
+  );
+}
+
+export function createVisualization(
+  payload: t.TVisualizationCreateRequest,
+): Promise<t.TVisualization> {
+  return request.post(endpoints.visualizations(), payload);
+}
+
+export function getVisualization(visualizationId: string): Promise<t.TVisualization> {
+  return request.get(endpoints.visualizationById(visualizationId));
+}
+
+export function updateVisualization(
+  payload: t.TVisualizationUpdateRequest,
+): Promise<t.TVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.patch(endpoints.visualizationById(visualizationId), data);
+}
+
+export function regenerateVisualization(
+  payload: t.TVisualizationRegenerateRequest,
+): Promise<t.TVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.visualizationRegenerate(visualizationId), data);
+}
+
+export function refineVisualization(
+  payload: t.TVisualizationRefineRequest,
+): Promise<t.TVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.visualizationRefine(visualizationId), data);
+}
+
+export function integrateVisualization(
+  payload: t.TVisualizationIntegrateRequest,
+): Promise<t.TVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.visualizationIntegrate(visualizationId), data);
+}
+
+export function duplicateVisualization(
+  payload: t.TVisualizationDuplicateRequest,
+): Promise<t.TVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.visualizationDuplicate(visualizationId), data);
+}
+
+export function deleteVisualization(visualizationId: string): Promise<t.TVisualization> {
+  return request.delete(endpoints.visualizationById(visualizationId));
+}
+
+export function suggestVisualizations(
+  payload: t.TVisualizationSuggestionRequest,
+): Promise<t.TVisualizationSuggestionSet> {
+  return request.post(endpoints.visualizationSuggestions(), payload);
 }
 
 export function listMessageRevisions(messageId: string): Promise<t.TMessageRevision[]> {

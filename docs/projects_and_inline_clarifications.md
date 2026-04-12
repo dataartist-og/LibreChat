@@ -1,8 +1,8 @@
-# Projects and Inline Clarifications
+# Projects, Inline Clarifications, and Visualizations
 
 ## Overview
 
-This feature set turns LibreChat into a project-scoped research workspace with inline, anchored clarification threads on assistant responses.
+This feature set turns LibreChat into a project-scoped research workspace with inline, anchored clarification and visualization threads on assistant responses.
 
 The MVP adds:
 
@@ -10,6 +10,7 @@ The MVP adds:
 - project-scoped `sources`
 - project-scoped `conversations`
 - anchored `message_clarifications`
+- anchored `visualization_artifacts`
 - inline rendering and merge-back into parent assistant content
 - parent `message_revisions` for traceable integration history
 
@@ -27,10 +28,15 @@ New backend logic is split across the existing shared-package and route layers:
   - `clarifications/service.ts`
   - `clarifications/prompt.ts`
   - `clarifications/anchors.ts`
+  - `visualizations/service.ts`
+  - `visualizations/prompt.ts`
+  - `visualizations/sanitize.ts`
+  - `visualizations/storage.ts`
 - `api/server/routes`
   - `projects.js`
   - `conversations.js`
   - `clarifications.js`
+  - `visualizations.js`
 
 ### Frontend
 
@@ -41,12 +47,16 @@ The UI keeps LibreChat’s existing message renderer and adds an annotation laye
 - `client/src/components/Clarifications/Annotated.tsx`
 - `client/src/components/Clarifications/Block.tsx`
 - `client/src/components/Clarifications/Merge.tsx`
+- `client/src/components/Visualizations/Tab.tsx`
+- `client/src/components/Visualizations/Card.tsx`
+- `client/src/components/Visualizations/Renderer.tsx`
 
 Supporting state and data access live in:
 
 - `client/src/store/projects.ts`
 - `client/src/data-provider/Projects/*`
 - `client/src/data-provider/Clarifications/*`
+- `client/src/data-provider/Visualizations/*`
 
 ## Schema Summary
 
@@ -108,6 +118,46 @@ Fields:
 - `integratedAt`
 - `integrationPatch`
 
+### Visualizations
+
+Collection: `visualizationartifacts`
+
+Fields:
+
+- `visualizationId`
+- `projectId`
+- `conversationId`
+- `parentMessageId`
+- `anchorStart`
+- `anchorEnd`
+- `anchorText`
+- `anchorContextBefore`
+- `anchorContextAfter`
+- `anchorPath`
+- `inlineThreadId`
+- `parentVisualizationId`
+- `rootVisualizationId`
+- `title`
+- `description`
+- `artifactType` (`html_app`, `svg`, `image`, `mermaid`, `markdown_explainer_with_embeds`, `json_spec`)
+- `status` (`draft`, `ready`, `failed`, `archived`)
+- `storageMode` (`db_inline`, `file_store`, `hybrid`)
+- `canonicalSourceText`
+- `canonicalSourceMimeType`
+- `compiledRenderText`
+- `compiledRenderMimeType`
+- `compiledRenderStoragePath`
+- `thumbnailUrl`
+- `sourcePrompt`
+- `generationModel`
+- `generationMetadata`
+- `integrationState` (`nested_only`, `integrated`, `detached`)
+- `isLatestVersion`
+- `versionNumber`
+- `createdByUserId`
+- `integratedAt`
+- `deletedAt`
+
 ### Message Revisions
 
 Collection: `messagerevisions`
@@ -138,6 +188,18 @@ Used to preserve parent message edits created by clarification integration.
 - `PATCH /api/clarifications/:clarificationId`
 - `POST /api/clarifications/:clarificationId/integrate`
 - `POST /api/clarifications/:clarificationId/reanchor`
+
+### Visualizations
+
+- `GET /api/visualizations?conversationId=...&messageId=...`
+- `POST /api/visualizations`
+- `GET /api/visualizations/:visualizationId`
+- `PATCH /api/visualizations/:visualizationId`
+- `POST /api/visualizations/:visualizationId/regenerate`
+- `POST /api/visualizations/:visualizationId/integrate`
+- `POST /api/visualizations/:visualizationId/duplicate`
+- `DELETE /api/visualizations/:visualizationId`
+- `GET /api/visualizations/:visualizationId/render`
 
 ### Revision History
 
@@ -179,6 +241,26 @@ Used to preserve parent message edits created by clarification integration.
   - clarification answer
   - editable merged parent content
 
+### Visualization UX
+
+- `VisualizationTab`
+  - prompt composer
+  - quick artifact type chips
+  - attached visualization list
+  - active visualization preview
+- `VisualizationCard`
+  - edit metadata and source
+  - regenerate
+  - duplicate
+  - integrate into parent
+  - delete
+  - open expanded preview
+- `VisualizationRenderer`
+  - sandboxed iframe rendering for `html_app`
+  - inline sanitized rendering for `svg`
+  - responsive image rendering for `image`
+  - native Mermaid rendering for `mermaid`
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -200,6 +282,7 @@ npm run build:data-provider
 npm run build:data-schemas
 npm run build:api
 npm run build:client-package
+npm run migrate:inline-visualizations:dry-run
 ```
 
 ### Start the backend
@@ -227,18 +310,25 @@ Required:
 
 - existing LibreChat env values, especially `MONGO_URI`
 - `OPENAI_API_KEY` for live clarification generation
+- `OPENAI_API_KEY` for live visualization generation
 
 Optional:
 
 - `INLINE_CLARIFICATION_MODEL`
   - overrides the model used for clarification generation
   - defaults to `OPENAI_MODEL`, then `gpt-4o-mini`
+- `INLINE_VISUALIZATION_MODEL`
+  - overrides the chat model used for visualization generation
+- `INLINE_VISUALIZATION_IMAGE_MODEL`
+  - overrides the image model used for `image` artifacts
 
 ## Notes on Source Ingestion
 
 - Uploaded project files reuse LibreChat’s existing message-attachment path.
 - When a file upload includes `projectId`, the backend auto-creates a matching project source record.
 - Project clarification generation pulls project file text from the existing file store when available.
+- Visualization payloads up to 256 KB stay inline in Mongo metadata; larger compiled render payloads spill into `uploads/visualizations`.
+- `html_app` render payloads are sanitized server-side and served from a dedicated render route with strict CSP, then loaded in a sandboxed iframe with `allow-scripts` only.
 
 ## Known Limitations
 
@@ -251,4 +341,3 @@ Optional:
 - Clarification generation currently uses the OpenAI client directly via `OPENAI_API_KEY` rather than routing through the selected chat provider.
 - If Meilisearch is unavailable, conversation/file search sync logs errors but the core project and clarification flow still works.
 - File uploads still pass through LibreChat’s existing browser-user-agent middleware; scripted upload checks need a browser-like `User-Agent`.
-

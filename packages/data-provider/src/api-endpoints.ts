@@ -128,6 +128,8 @@ export const duplicateConversation = () => `${conversationsRoot}/duplicate`;
 
 const projectsRoot = `${BASE_URL}/api/projects`;
 const clarificationsRoot = `${BASE_URL}/api/clarifications`;
+const documentsRoot = `${BASE_URL}/api/documents`;
+const visualizationsRoot = `${BASE_URL}/api/visualizations`;
 const conversationClarificationsRoot = `${BASE_URL}/api/conversations`;
 
 export const projects = () => projectsRoot;
@@ -139,6 +141,35 @@ export const projectSources = (projectId: string) => `${projectById(projectId)}/
 
 export const projectSourceById = (projectId: string, sourceId: string) =>
   `${projectSources(projectId)}/${encodeURIComponent(sourceId)}`;
+
+export const documents = (params?: { projectId?: string | null }) =>
+  `${documentsRoot}${buildQuery(params ?? {})}`;
+
+export const documentById = (documentId: string) =>
+  `${documentsRoot}/${encodeURIComponent(documentId)}`;
+
+export const documentReingest = (documentId: string) => `${documentById(documentId)}/reingest`;
+
+export const documentClarifications = (documentId: string) =>
+  `${documentById(documentId)}/clarifications`;
+
+export const documentClarificationById = (clarificationId: string) =>
+  `${documentsRoot}/clarifications/${encodeURIComponent(clarificationId)}`;
+
+export const documentClarificationIntegrate = (clarificationId: string) =>
+  `${documentClarificationById(clarificationId)}/integrate`;
+
+export const documentVisualizations = (documentId: string) =>
+  `${documentById(documentId)}/visualizations`;
+
+export const documentVisualizationById = (visualizationId: string) =>
+  `${documentsRoot}/visualizations/${encodeURIComponent(visualizationId)}`;
+
+export const documentVisualizationIntegrate = (visualizationId: string) =>
+  `${documentVisualizationById(visualizationId)}/integrate`;
+
+export const documentVisualizationRender = (visualizationId: string) =>
+  `${documentVisualizationById(visualizationId)}/render`;
 
 export const conversationClarifications = (
   conversationId: string,
@@ -156,6 +187,37 @@ export const clarificationIntegrate = (clarificationId: string) =>
 
 export const clarificationReanchor = (clarificationId: string) =>
   `${clarificationById(clarificationId)}/reanchor`;
+
+export const clarificationSuggestions = (conversationId: string) =>
+  `${conversationClarificationsRoot}/${encodeURIComponent(conversationId)}/clarifications/options`;
+
+export const visualizations = (params?: {
+  conversationId: string;
+  parentMessageId?: string;
+  includeArchived?: boolean;
+  includeDeleted?: boolean;
+  includeAllVersions?: boolean;
+}) => `${visualizationsRoot}${buildQuery(params ?? {})}`;
+
+export const visualizationById = (visualizationId: string) =>
+  `${visualizationsRoot}/${encodeURIComponent(visualizationId)}`;
+
+export const visualizationRegenerate = (visualizationId: string) =>
+  `${visualizationById(visualizationId)}/regenerate`;
+
+export const visualizationRefine = (visualizationId: string) =>
+  `${visualizationById(visualizationId)}/refine`;
+
+export const visualizationIntegrate = (visualizationId: string) =>
+  `${visualizationById(visualizationId)}/integrate`;
+
+export const visualizationDuplicate = (visualizationId: string) =>
+  `${visualizationById(visualizationId)}/duplicate`;
+
+export const visualizationRender = (visualizationId: string) =>
+  `${visualizationById(visualizationId)}/render`;
+
+export const visualizationSuggestions = () => `${visualizationsRoot}/options`;
 
 export const messageRevisions = (messageId: string) =>
   `${BASE_URL}/api/messages/${encodeURIComponent(messageId)}/revisions`;

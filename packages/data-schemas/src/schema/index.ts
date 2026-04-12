@@ -8,6 +8,7 @@ export { default as bannerSchema } from './banner';
 export { default as categoriesSchema } from './categories';
 export { default as conversationTagSchema } from './conversationTag';
 export { default as clarificationSchema } from './clarification';
+export { default as visualizationSchema } from './visualization';
 export { default as convoSchema } from './convo';
 export { default as fileSchema } from './file';
 export { default as keySchema } from './key';
@@ -17,6 +18,13 @@ export { default as pluginAuthSchema } from './pluginAuth';
 export { default as presetSchema } from './preset';
 export { default as projectSchema } from './project';
 export { default as projectSourceSchema } from './projectSource';
+export {
+  studyDocumentSchema,
+  documentRenderVersionSchema,
+  documentOverlaySchema,
+  documentClarificationSchema,
+  documentVisualizationSchema,
+} from './document';
 export { default as promptSchema } from './prompt';
 export { default as promptGroupSchema } from './promptGroup';
 export { default as roleSchema } from './role';

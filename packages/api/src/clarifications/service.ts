@@ -8,7 +8,11 @@ import type {
 } from '@librechat/data-schemas';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getConfiguredOpenAIBaseURL } from '~/files/native';
-import { extractMessageText, buildClarificationMessages } from './prompt';
+import {
+  extractMessageText,
+  buildClarificationMessages,
+  buildClarificationSuggestionMessages,
+} from './prompt';
 import { resolveAnchor, type AnchorCandidate, type AnchorResolution } from './anchors';
 
 type SaveMessageContext = {
@@ -22,6 +26,18 @@ type CreateClarificationPayload = AnchorCandidate & {
   conversationId: string;
   parentMessageId: string;
   clarificationQuestion: string;
+};
+
+type ExistingClarificationContext = {
+  question: string;
+  answer: string;
+};
+
+type SuggestClarificationOptionsPayload = AnchorCandidate & {
+  projectId?: string | null;
+  conversationId: string;
+  parentMessageId: string;
+  existingClarifications?: ExistingClarificationContext[];
 };
 
 type IntegrateClarificationPayload = {
@@ -73,6 +89,19 @@ export interface ClarificationServiceDeps {
   listProjectSources: AllMethods['listProjectSources'];
   getFiles: AllMethods['getFiles'];
 }
+
+type ClarificationSuggestionOption = {
+  label: string;
+  proposedQuestion: string;
+  understandingGain: string;
+  reasoning: string;
+};
+
+type ClarificationSuggestionSet = {
+  contentProfile: 'conceptual' | 'procedural' | 'equational' | 'precise' | 'mixed';
+  focusSummary: string;
+  suggestions: ClarificationSuggestionOption[];
+};
 
 function getConfiguredClarificationModel(): string | null {
   return process.env.INLINE_CLARIFICATION_MODEL || process.env.OPENAI_MODEL || null;
@@ -161,18 +190,14 @@ async function requireParentMessage(
   return message;
 }
 
-async function generateClarificationAnswer(
+async function loadClarificationPromptContext(
   deps: ClarificationServiceDeps,
   userId: string,
   payload: {
     projectId?: string | null;
     conversationId: string;
-    selectedText: string;
-    contextBefore: string;
-    contextAfter: string;
-    clarificationQuestion: string;
   },
-): Promise<string> {
+) {
   const conversationMessages = await deps.getMessages(
     {
       conversationId: payload.conversationId,
@@ -191,14 +216,14 @@ async function generateClarificationAnswer(
 
   const files =
     fileIds.length > 0
-      ? (await deps.getFiles(
+      ? ((await deps.getFiles(
           {
             user: userId,
             file_id: { $in: fileIds },
           },
           { updatedAt: -1 },
           '-_id -__v -tenantId',
-        )) ?? []
+        )) ?? [])
       : [];
 
   const projectFiles = files
@@ -207,6 +232,91 @@ async function generateClarificationAnswer(
       title: file.filename,
       text: file.text ?? '',
     }));
+
+  return {
+    conversationMessages,
+    projectSources,
+    projectFiles,
+  };
+}
+
+function extractJsonBlock(raw: string): string | null {
+  const fencedMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return raw.slice(firstBrace, lastBrace + 1);
+  }
+
+  return null;
+}
+
+function parseClarificationSuggestions(rawResponse: string): ClarificationSuggestionSet {
+  const jsonCandidate = extractJsonBlock(rawResponse);
+  if (!jsonCandidate) {
+    throw new Error('Clarification suggestions returned no JSON payload');
+  }
+
+  const parsed = JSON.parse(jsonCandidate) as {
+    content_profile?: ClarificationSuggestionSet['contentProfile'];
+    focus_summary?: string;
+    suggestions?: Array<{
+      label?: string;
+      proposed_question?: string;
+      understanding_gain?: string;
+      reasoning?: string;
+    }>;
+  };
+
+  if (!parsed.suggestions?.length) {
+    throw new Error('Clarification suggestions returned no options');
+  }
+
+  const suggestions = parsed.suggestions
+    .map((suggestion) => ({
+      label: suggestion.label?.trim() ?? '',
+      proposedQuestion: suggestion.proposed_question?.trim() ?? '',
+      understandingGain: suggestion.understanding_gain?.trim() ?? '',
+      reasoning: suggestion.reasoning?.trim() ?? '',
+    }))
+    .filter(
+      (suggestion) =>
+        suggestion.label &&
+        suggestion.proposedQuestion &&
+        suggestion.understandingGain &&
+        suggestion.reasoning,
+    )
+    .slice(0, 3);
+
+  if (!suggestions.length) {
+    throw new Error('Clarification suggestions returned malformed options');
+  }
+
+  return {
+    contentProfile: parsed.content_profile ?? 'mixed',
+    focusSummary: parsed.focus_summary?.trim() || 'Clarify the local meaning of the highlighted span.',
+    suggestions,
+  };
+}
+
+async function generateClarificationAnswer(
+  deps: ClarificationServiceDeps,
+  userId: string,
+  payload: {
+    projectId?: string | null;
+    conversationId: string;
+    selectedText: string;
+    contextBefore: string;
+    contextAfter: string;
+    clarificationQuestion: string;
+  },
+): Promise<string> {
+  const { conversationMessages, projectSources, projectFiles } =
+    await loadClarificationPromptContext(deps, userId, payload);
 
   const messages = buildClarificationMessages({
     selectedText: payload.selectedText,
@@ -235,6 +345,64 @@ async function generateClarificationAnswer(
   }
 
   return completion.choices[0]?.message?.content?.trim() || 'No clarification answer was generated.';
+}
+
+export async function suggestClarificationOptions(
+  deps: ClarificationServiceDeps,
+  userId: string,
+  payload: SuggestClarificationOptionsPayload,
+): Promise<ClarificationSuggestionSet> {
+  const convo = await deps.getConvo(userId, payload.conversationId);
+  if (!convo) {
+    throw new Error('Conversation not found');
+  }
+
+  const parentMessage = await requireParentMessage(
+    deps,
+    userId,
+    payload.parentMessageId,
+    payload.conversationId,
+  );
+  const parentText = extractMessageText(parentMessage);
+  const contexts = buildAnchorContexts(parentText, payload.anchorStart, payload.anchorEnd);
+  const { conversationMessages, projectSources, projectFiles } =
+    await loadClarificationPromptContext(deps, userId, {
+      projectId: payload.projectId ?? convo.projectId ?? null,
+      conversationId: payload.conversationId,
+    });
+
+  const messages = buildClarificationSuggestionMessages({
+    selectedText: payload.anchorText,
+    contextBefore: payload.anchorContextBefore || contexts.before,
+    contextAfter: payload.anchorContextAfter || contexts.after,
+    recentMessages: conversationMessages,
+    projectSources,
+    projectFiles,
+    existingClarifications: payload.existingClarifications ?? [],
+  }) as ChatCompletionMessageParam[];
+
+  const client = getOpenAIClient();
+  const model = await resolveClarificationModel(client);
+
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.2,
+      messages,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown error while generating suggestions';
+    throw new Error(`Clarification suggestion generation failed for model "${model}": ${message}`);
+  }
+
+  const rawResponse = completion.choices[0]?.message?.content?.trim();
+  if (!rawResponse) {
+    throw new Error('Clarification suggestions returned no content');
+  }
+
+  return parseClarificationSuggestions(rawResponse);
 }
 
 function buildReanchorMetadata(
