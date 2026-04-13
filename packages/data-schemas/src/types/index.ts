@@ -13,6 +13,8 @@ export * from './message';
 export * from './project';
 export * from './projectSource';
 export * from './document';
+export * from './dialog';
+export * from './learner';
 export * from './clarification';
 export * from './visualization';
 export * from './messageRevision';

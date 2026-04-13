@@ -9,6 +9,7 @@ import type {
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getConfiguredOpenAIBaseURL } from '~/files/native';
 import { extractMessageText } from '~/clarifications/prompt';
+import { recordLearnerObservation } from '~/learners';
 import { sanitizeTitle } from '~/utils/sanitizeTitle';
 import {
   buildVisualizationMessages,
@@ -123,6 +124,28 @@ export interface VisualizationServiceDeps {
   getLatestVisualizationVersion: AllMethods['getLatestVisualizationVersion'];
   listProjectSources: AllMethods['listProjectSources'];
   getFiles: AllMethods['getFiles'];
+  createLearnerProfile: AllMethods['createLearnerProfile'];
+  getLearnerProfile: AllMethods['getLearnerProfile'];
+  updateLearnerProfile: AllMethods['updateLearnerProfile'];
+  listLearnerKnowledgeNodes: AllMethods['listLearnerKnowledgeNodes'];
+  getLearnerKnowledgeNodeByLabel: AllMethods['getLearnerKnowledgeNodeByLabel'];
+  upsertLearnerKnowledgeNode: AllMethods['upsertLearnerKnowledgeNode'];
+  listLearnerKnowledgeEdges: AllMethods['listLearnerKnowledgeEdges'];
+  upsertLearnerKnowledgeEdge: AllMethods['upsertLearnerKnowledgeEdge'];
+  createLearnerEvent: AllMethods['createLearnerEvent'];
+  listLearnerEvents: AllMethods['listLearnerEvents'];
+}
+
+async function safeRecordChatVisualizationObservation(
+  deps: VisualizationServiceDeps,
+  userId: string,
+  payload: Parameters<typeof recordLearnerObservation>[2],
+): Promise<void> {
+  try {
+    await recordLearnerObservation(deps, userId, payload);
+  } catch {
+    // Learner-state updates should not block visualization flows.
+  }
 }
 
 type VisualizationSuggestionOption = {
@@ -806,8 +829,33 @@ export async function createVisualization(
         storageByteSize: stored.storageByteSize,
       },
     });
+    const finalized = updated ?? draft;
 
-    return updated ?? draft;
+    await safeRecordChatVisualizationObservation(deps, userId, {
+      surface: 'chat',
+      eventType: 'chat_visualization',
+      sourceId: payload.conversationId,
+      sourceTitle: payload.anchorText,
+      summary: `The learner requested a ${payload.artifactType} chat visualization for "${payload.anchorText}".`,
+      payloadJson: {
+        visualizationId: finalized.visualizationId,
+        parentMessageId: payload.parentMessageId,
+        artifactType: payload.artifactType,
+        prompt,
+      },
+      conceptHints: [
+        {
+          label: payload.anchorText,
+          category: 'bridge',
+          mastery: 0.3,
+          confidence: 0.46,
+          evidenceSummary: prompt,
+          sourceLabel: payload.anchorText,
+        },
+      ],
+    });
+
+    return finalized;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unknown error while generating visualization';

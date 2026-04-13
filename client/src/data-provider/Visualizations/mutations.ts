@@ -16,6 +16,7 @@ function invalidateVisualizationQueries(
   queryClient.invalidateQueries([QueryKeys.visualizations, conversationId]);
   queryClient.invalidateQueries([QueryKeys.messages, conversationId]);
   queryClient.invalidateQueries([QueryKeys.messageRevisions, parentMessageId]);
+  queryClient.invalidateQueries([QueryKeys.learner]);
 }
 
 export const useCreateVisualizationMutation = (): UseMutationResult<

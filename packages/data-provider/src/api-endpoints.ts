@@ -128,7 +128,9 @@ export const duplicateConversation = () => `${conversationsRoot}/duplicate`;
 
 const projectsRoot = `${BASE_URL}/api/projects`;
 const clarificationsRoot = `${BASE_URL}/api/clarifications`;
+const dialogsRoot = `${BASE_URL}/api/dialogs`;
 const documentsRoot = `${BASE_URL}/api/documents`;
+const learnersRoot = `${BASE_URL}/api/learners`;
 const visualizationsRoot = `${BASE_URL}/api/visualizations`;
 const conversationClarificationsRoot = `${BASE_URL}/api/conversations`;
 
@@ -141,6 +143,50 @@ export const projectSources = (projectId: string) => `${projectById(projectId)}/
 
 export const projectSourceById = (projectId: string, sourceId: string) =>
   `${projectSources(projectId)}/${encodeURIComponent(sourceId)}`;
+
+export const dialogs = (params?: { projectId?: string | null }) =>
+  `${dialogsRoot}${buildQuery(params ?? {})}`;
+
+export const dialogById = (dialogId: string) => `${dialogsRoot}/${encodeURIComponent(dialogId)}`;
+
+export const dialogStarter = () => `${dialogsRoot}/starter`;
+
+export const dialogCells = (dialogId: string) => `${dialogById(dialogId)}/cells`;
+
+export const dialogCellById = (dialogId: string, cellId: string) =>
+  `${dialogCells(dialogId)}/${encodeURIComponent(cellId)}`;
+
+export const dialogCellExecute = (dialogId: string, cellId: string) =>
+  `${dialogCellById(dialogId, cellId)}/execute`;
+
+export const dialogTrajectory = (dialogId: string) => `${dialogById(dialogId)}/trajectory`;
+
+export const dialogTutor = (dialogId: string) => `${dialogById(dialogId)}/tutor`;
+
+export const dialogTutorAction = (dialogId: string) => `${dialogTutor(dialogId)}/action`;
+
+export const dialogClarifications = (dialogId: string, cellId: string) =>
+  `${dialogCellById(dialogId, cellId)}/clarifications`;
+
+export const dialogClarificationById = (clarificationId: string) =>
+  `${dialogsRoot}/clarifications/${encodeURIComponent(clarificationId)}`;
+
+export const dialogClarificationIntegrate = (clarificationId: string) =>
+  `${dialogClarificationById(clarificationId)}/integrate`;
+
+export const dialogVisualizations = (dialogId: string, cellId: string) =>
+  `${dialogCellById(dialogId, cellId)}/visualizations`;
+
+export const dialogVisualizationById = (visualizationId: string) =>
+  `${dialogsRoot}/visualizations/${encodeURIComponent(visualizationId)}`;
+
+export const dialogVisualizationIntegrate = (visualizationId: string) =>
+  `${dialogVisualizationById(visualizationId)}/integrate`;
+
+export const dialogVisualizationRender = (visualizationId: string) =>
+  `${dialogVisualizationById(visualizationId)}/render`;
+
+export const learnerProfile = () => `${learnersRoot}/me`;
 
 export const documents = (params?: { projectId?: string | null }) =>
   `${documentsRoot}${buildQuery(params ?? {})}`;

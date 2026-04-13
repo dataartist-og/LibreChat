@@ -7,6 +7,7 @@ import { createKeyMethods, type KeyMethods } from './key';
 import { createFileMethods, type FileMethods } from './file';
 /* Memories */
 import { createMemoryMethods, type MemoryMethods } from './memory';
+import { createLearnerMethods, type LearnerMethods } from './learner';
 /* Agent Categories */
 import { createAgentCategoryMethods, type AgentCategoryMethods } from './agentCategory';
 /* Agent API Keys */
@@ -31,6 +32,7 @@ import { createPresetMethods, type PresetMethods } from './preset';
 import { createProjectMethods, type ProjectMethods } from './project';
 import { createProjectSourceMethods, type ProjectSourceMethods } from './projectSource';
 import { createDocumentMethods, type DocumentMethods } from './document';
+import { createDialogMethods, type DialogMethods } from './dialog';
 import { createClarificationMethods, type ClarificationMethods } from './clarification';
 import { createVisualizationMethods, type VisualizationMethods } from './visualization';
 import { createMessageRevisionMethods, type MessageRevisionMethods } from './messageRevision';
@@ -66,6 +68,7 @@ export type AllMethods = UserMethods &
   KeyMethods &
   FileMethods &
   MemoryMethods &
+  LearnerMethods &
   AgentCategoryMethods &
   AgentApiKeyMethods &
   MCPServerMethods &
@@ -84,6 +87,7 @@ export type AllMethods = UserMethods &
   ProjectMethods &
   ProjectSourceMethods &
   DocumentMethods &
+  DialogMethods &
   ClarificationMethods &
   VisualizationMethods &
   MessageRevisionMethods &
@@ -189,6 +193,7 @@ export function createMethods(
     ...createKeyMethods(mongoose),
     ...createFileMethods(mongoose),
     ...createMemoryMethods(mongoose),
+    ...createLearnerMethods(mongoose),
     ...createAgentCategoryMethods(mongoose),
     ...createAgentApiKeyMethods(mongoose),
     ...createMCPServerMethods(mongoose),
@@ -208,6 +213,7 @@ export function createMethods(
     ...createProjectMethods(mongoose),
     ...createProjectSourceMethods(mongoose),
     ...createDocumentMethods(mongoose),
+    ...createDialogMethods(mongoose),
     ...createClarificationMethods(mongoose),
     ...createVisualizationMethods(mongoose),
     ...createMessageRevisionMethods(mongoose),
@@ -235,6 +241,7 @@ export type {
   KeyMethods,
   FileMethods,
   MemoryMethods,
+  LearnerMethods,
   AgentCategoryMethods,
   AgentApiKeyMethods,
   MCPServerMethods,
@@ -253,6 +260,7 @@ export type {
   ProjectMethods,
   ProjectSourceMethods,
   DocumentMethods,
+  DialogMethods,
   ClarificationMethods,
   MessageRevisionMethods,
   ConversationTagMethods,

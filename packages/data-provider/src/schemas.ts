@@ -1033,6 +1033,19 @@ export const documentBlockTypeSchema = z.enum([
   'page_break',
 ]);
 
+export const dialogSourceTypeSchema = z.enum(['paper', 'repository', 'document', 'webpage']);
+
+export const dialogCellTypeSchema = z.enum(['note', 'code', 'prompt', 'output', 'terminal']);
+
+export const dialogExecutionRunStatusSchema = z.enum(['queued', 'running', 'succeeded', 'failed']);
+
+export const dialogTeachingModeSchema = z.enum([
+  'teach_me',
+  'hint_mode',
+  'explain_then_do',
+  'just_do_it',
+]);
+
 export const documentClarificationStatusSchema = z.enum(['active', 'integrated', 'archived']);
 
 export const tDocumentAnchorSchema = z.object({
@@ -1262,6 +1275,407 @@ export const tStudyDocumentSchema = z.object({
 });
 
 export type TStudyDocument = z.infer<typeof tStudyDocumentSchema>;
+
+export const tDialogTrajectorySchema = z.object({
+  key: z.string(),
+  title: z.string(),
+  description: z.string(),
+  prompt: z.string(),
+  focus: z.array(z.string()),
+});
+
+export type TDialogTrajectory = z.infer<typeof tDialogTrajectorySchema>;
+
+export const dialogPlanNodeTypeSchema = z.enum([
+  'concept',
+  'implementation',
+  'bridge',
+  'verification',
+  'synthesis',
+]);
+
+export const dialogPlanNodeStatusSchema = z.enum([
+  'not_started',
+  'in_progress',
+  'needs_breakdown',
+  'mastered',
+  'blocked',
+  'skipped',
+]);
+
+export const dialogCellAuthorSchema = z.enum(['tutor', 'user']);
+export const dialogCellRoleSchema = z.enum([
+  'instruction',
+  'exercise',
+  'checkpoint',
+  'assistant_query',
+  'output',
+]);
+
+export const tDialogPlanSourceAnchorSchema = z.object({
+  sourceType: dialogSourceTypeSchema,
+  sourceRef: z.string(),
+  label: z.string(),
+  detail: z.string().nullable().optional(),
+});
+
+export type TDialogPlanSourceAnchor = z.infer<typeof tDialogPlanSourceAnchorSchema>;
+
+export const tDialogCellMetadataSchema = z.object({
+  nodeId: z.string().nullable().optional(),
+  authoredBy: dialogCellAuthorSchema.nullable().optional(),
+  cellRole: dialogCellRoleSchema.nullable().optional(),
+  stepIntent: z.string().nullable().optional(),
+  starterPrompt: z.boolean().nullable().optional(),
+  sourceCellId: z.string().nullable().optional(),
+  runId: z.string().nullable().optional(),
+  checkpointPrompt: z.string().nullable().optional(),
+  learnerResponse: z.string().nullable().optional(),
+});
+
+export type TDialogCellMetadata = z.infer<typeof tDialogCellMetadataSchema>;
+
+export const tStudyDialogSchema = z.object({
+  dialogId: z.string(),
+  projectId: z.string().nullable().optional(),
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  kernelStateRef: z.string().nullable().optional(),
+  sourceManifestJson: z.array(
+    z.object({
+      importId: z.string(),
+      sourceType: dialogSourceTypeSchema,
+      sourceRef: z.string(),
+      title: z.string(),
+      description: z.string().nullable().optional(),
+      metadata: DocumentType.nullable().optional(),
+    }),
+  ),
+  metadataJson: DocumentType.nullable().optional(),
+  teachingMode: dialogTeachingModeSchema,
+  selectedTrajectoryKey: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TStudyDialog = z.infer<typeof tStudyDialogSchema>;
+
+export const tDialogCellAnchorSchema = z.object({
+  cellId: z.string(),
+  anchorText: z.string(),
+  anchorContextBefore: z.string(),
+  anchorContextAfter: z.string(),
+  startOffset: z.number(),
+  endOffset: z.number(),
+});
+
+export type TDialogCellAnchor = z.infer<typeof tDialogCellAnchorSchema>;
+
+export const tDialogCellSchema = z.object({
+  cellId: z.string(),
+  dialogId: z.string(),
+  position: z.number(),
+  cellType: dialogCellTypeSchema,
+  title: z.string().nullable().optional(),
+  sourceMarkdown: z.string().nullable().optional(),
+  sourceCode: z.string().nullable().optional(),
+  renderHtml: z.string().nullable().optional(),
+  metadataJson: tDialogCellMetadataSchema.nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogCell = z.infer<typeof tDialogCellSchema>;
+
+export const tDialogPlanNodeSchema = z.object({
+  nodeId: z.string(),
+  dialogId: z.string(),
+  parentNodeId: z.string().nullable().optional(),
+  dependencyNodeIds: z.array(z.string()),
+  nodeType: dialogPlanNodeTypeSchema,
+  title: z.string(),
+  objective: z.string(),
+  sourceAnchors: z.array(tDialogPlanSourceAnchorSchema),
+  status: dialogPlanNodeStatusSchema,
+  depth: z.number(),
+  priority: z.number(),
+  masteryEvidenceJson: DocumentType.nullable().optional(),
+  plannerNotes: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogPlanNode = z.infer<typeof tDialogPlanNodeSchema>;
+
+export const dialogTutorLastActionSchema = z.enum([
+  'initialized',
+  'advance',
+  'understood',
+  'break_down',
+  'stuck',
+  'skip',
+  'evaluate',
+]);
+
+export const dialogTutorCompletionStateSchema = z.enum(['active', 'complete']);
+
+export const tDialogTutorStateSchema = z.object({
+  dialogId: z.string(),
+  selectedTrajectoryKey: z.string().nullable().optional(),
+  activeNodeId: z.string().nullable().optional(),
+  rootNodeIds: z.array(z.string()),
+  learnerModelJson: DocumentType.nullable().optional(),
+  planVersion: z.number(),
+  lastTutorAction: dialogTutorLastActionSchema,
+  completionState: dialogTutorCompletionStateSchema,
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogTutorState = z.infer<typeof tDialogTutorStateSchema>;
+
+export const tDialogExecutionRunSchema = z.object({
+  runId: z.string(),
+  dialogId: z.string(),
+  cellId: z.string(),
+  kernelSessionId: z.string(),
+  status: dialogExecutionRunStatusSchema,
+  stdout: z.string(),
+  stderr: z.string(),
+  resultJson: DocumentType.nullable().optional(),
+  startedAt: z.string().nullable().optional(),
+  finishedAt: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogExecutionRun = z.infer<typeof tDialogExecutionRunSchema>;
+
+export const tDialogImportSchema = z.object({
+  importId: z.string(),
+  dialogId: z.string(),
+  sourceType: dialogSourceTypeSchema,
+  sourceRef: z.string(),
+  title: z.string(),
+  metadataJson: DocumentType.nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogImport = z.infer<typeof tDialogImportSchema>;
+
+export const tDialogSourceMapSchema = z.object({
+  mapId: z.string(),
+  dialogId: z.string(),
+  paperAnchor: z.string(),
+  repoPath: z.string(),
+  symbolName: z.string().nullable().optional(),
+  mappingType: z.string(),
+  confidence: z.number(),
+  notesMarkdown: z.string(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogSourceMap = z.infer<typeof tDialogSourceMapSchema>;
+
+export const dialogClarificationStatusSchema = z.enum(['active', 'integrated', 'archived']);
+
+export const tDialogClarificationSchema = z.object({
+  clarificationId: z.string(),
+  dialogId: z.string(),
+  cellId: z.string(),
+  anchor: tDialogCellAnchorSchema,
+  clarificationQuestion: z.string(),
+  clarificationAnswer: z.string(),
+  promptText: z.string().nullable().optional(),
+  modelProvider: z.string().nullable().optional(),
+  modelName: z.string().nullable().optional(),
+  status: dialogClarificationStatusSchema,
+  integratedAt: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogClarification = z.infer<typeof tDialogClarificationSchema>;
+
+export const tDialogVisualizationSchema = z.object({
+  visualizationId: z.string(),
+  dialogId: z.string(),
+  cellId: z.string(),
+  anchor: tDialogCellAnchorSchema,
+  parentVisualizationId: z.string().nullable().optional(),
+  rootVisualizationId: z.string().nullable().optional(),
+  title: z.string(),
+  description: z.string(),
+  artifactType: visualizationArtifactTypeSchema,
+  status: visualizationStatusSchema,
+  storageMode: visualizationStorageModeSchema,
+  canonicalSourceText: z.string(),
+  canonicalSourceMimeType: z.string().nullable().optional(),
+  compiledRenderText: z.string().nullable().optional(),
+  compiledRenderMimeType: z.string(),
+  compiledRenderStoragePath: z.string().nullable().optional(),
+  sourcePrompt: z.string(),
+  generationModel: z.string().nullable().optional(),
+  generationMetadata: tVisualizationGenerationMetadataSchema.nullable().optional(),
+  integrationState: visualizationIntegrationStateSchema,
+  isLatestVersion: z.boolean(),
+  versionNumber: z.number(),
+  integratedAt: z.string().nullable().optional(),
+  deletedAt: z.string().nullable().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TDialogVisualization = z.infer<typeof tDialogVisualizationSchema>;
+
+export const tDialogWorkspaceSchema = z.object({
+  dialog: tStudyDialogSchema,
+  cells: z.array(tDialogCellSchema),
+  imports: z.array(tDialogImportSchema),
+  sourceMaps: z.array(tDialogSourceMapSchema),
+  clarifications: z.array(tDialogClarificationSchema),
+  visualizations: z.array(tDialogVisualizationSchema),
+  executionRuns: z.array(tDialogExecutionRunSchema),
+});
+
+export type TDialogWorkspace = z.infer<typeof tDialogWorkspaceSchema>;
+
+export const dialogTutorActionSchema = z.enum([
+  'advance',
+  'understood',
+  'break_down',
+  'stuck',
+  'skip',
+]);
+
+export type TDialogTutorAction = z.infer<typeof dialogTutorActionSchema>;
+
+export const tDialogTutorWorkspaceSchema = z.object({
+  dialogId: z.string(),
+  tutorState: tDialogTutorStateSchema.nullable(),
+  nodes: z.array(tDialogPlanNodeSchema),
+});
+
+export type TDialogTutorWorkspace = z.infer<typeof tDialogTutorWorkspaceSchema>;
+
+export const tDialogTutorActionResponseSchema = z.object({
+  workspace: tDialogWorkspaceSchema,
+  tutor: tDialogTutorWorkspaceSchema,
+});
+
+export type TDialogTutorActionResponse = z.infer<typeof tDialogTutorActionResponseSchema>;
+
+export const learnerSurfaceSchema = z.enum(['dialog', 'document', 'chat']);
+export const learnerKnowledgeCategorySchema = z.enum([
+  'concept',
+  'implementation',
+  'bridge',
+  'verification',
+  'tooling',
+  'math',
+  'workflow',
+]);
+export const learnerKnowledgeStatusSchema = z.enum([
+  'emerging',
+  'practicing',
+  'solid',
+  'mastered',
+]);
+
+export const tLearnerSourceRefSchema = z.object({
+  surface: learnerSurfaceSchema,
+  sourceId: z.string(),
+  label: z.string().nullable().optional(),
+});
+
+export type TLearnerSourceRef = z.infer<typeof tLearnerSourceRefSchema>;
+
+export const tLearnerProfileSchema = z.object({
+  profileId: z.string(),
+  userId: z.string(),
+  profileSummaryMarkdown: z.string().nullable().optional(),
+  knowledgeLevelSummary: z.string(),
+  learningPreferencesJson: DocumentType.nullable().optional(),
+  currentFocusLabels: z.array(z.string()),
+  lastUpdatedFromSurface: learnerSurfaceSchema.nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TLearnerProfile = z.infer<typeof tLearnerProfileSchema>;
+
+export const tLearnerKnowledgeNodeSchema = z.object({
+  learnerNodeId: z.string(),
+  userId: z.string(),
+  label: z.string(),
+  normalizedLabel: z.string(),
+  category: learnerKnowledgeCategorySchema,
+  mastery: z.number(),
+  confidence: z.number(),
+  status: learnerKnowledgeStatusSchema,
+  evidenceCount: z.number(),
+  evidenceSummary: z.string().nullable().optional(),
+  aliases: z.array(z.string()),
+  sourceRefs: z.array(tLearnerSourceRefSchema),
+  metadataJson: DocumentType.nullable().optional(),
+  lastObservedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TLearnerKnowledgeNode = z.infer<typeof tLearnerKnowledgeNodeSchema>;
+
+export const tLearnerKnowledgeEdgeSchema = z.object({
+  learnerEdgeId: z.string(),
+  userId: z.string(),
+  fromNodeId: z.string(),
+  toNodeId: z.string(),
+  relation: z.string(),
+  weight: z.number(),
+  evidenceCount: z.number(),
+  metadataJson: DocumentType.nullable().optional(),
+  lastObservedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TLearnerKnowledgeEdge = z.infer<typeof tLearnerKnowledgeEdgeSchema>;
+
+export const tLearnerEventSchema = z.object({
+  eventId: z.string(),
+  userId: z.string(),
+  surface: learnerSurfaceSchema,
+  eventType: z.string(),
+  sourceId: z.string(),
+  sourceTitle: z.string().nullable().optional(),
+  summary: z.string(),
+  payloadJson: DocumentType.nullable().optional(),
+  appliedJson: DocumentType.nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type TLearnerEvent = z.infer<typeof tLearnerEventSchema>;
+
+export const tLearnerWorkspaceSchema = z.object({
+  profile: tLearnerProfileSchema,
+  nodes: z.array(tLearnerKnowledgeNodeSchema),
+  edges: z.array(tLearnerKnowledgeEdgeSchema),
+  recentEvents: z.array(tLearnerEventSchema),
+});
+
+export type TLearnerWorkspace = z.infer<typeof tLearnerWorkspaceSchema>;
 
 export const tDocumentRenderVersionSchema = z.object({
   renderVersionId: z.string(),

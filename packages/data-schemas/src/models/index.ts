@@ -13,6 +13,23 @@ import {
   createDocumentVisualizationModel,
   createStudyDocumentModel,
 } from './document';
+import {
+  createDialogCellModel,
+  createDialogClarificationModel,
+  createDialogExecutionRunModel,
+  createDialogImportModel,
+  createDialogPlanNodeModel,
+  createDialogSourceMapModel,
+  createDialogTutorStateModel,
+  createDialogVisualizationModel,
+  createStudyDialogModel,
+} from './dialog';
+import {
+  createLearnerEventModel,
+  createLearnerKnowledgeEdgeModel,
+  createLearnerKnowledgeNodeModel,
+  createLearnerProfileModel,
+} from './learner';
 import { createClarificationModel } from './clarification';
 import { createVisualizationModel } from './visualization';
 import { createMessageRevisionModel } from './messageRevision';
@@ -59,6 +76,19 @@ export function createModels(mongoose: typeof import('mongoose')) {
     DocumentOverlay: createDocumentOverlayModel(mongoose),
     DocumentClarification: createDocumentClarificationModel(mongoose),
     DocumentVisualization: createDocumentVisualizationModel(mongoose),
+    StudyDialog: createStudyDialogModel(mongoose),
+    DialogCell: createDialogCellModel(mongoose),
+    DialogExecutionRun: createDialogExecutionRunModel(mongoose),
+    DialogPlanNode: createDialogPlanNodeModel(mongoose),
+    DialogTutorState: createDialogTutorStateModel(mongoose),
+    DialogImport: createDialogImportModel(mongoose),
+    DialogSourceMap: createDialogSourceMapModel(mongoose),
+    DialogClarification: createDialogClarificationModel(mongoose),
+    DialogVisualization: createDialogVisualizationModel(mongoose),
+    LearnerProfile: createLearnerProfileModel(mongoose),
+    LearnerKnowledgeNode: createLearnerKnowledgeNodeModel(mongoose),
+    LearnerKnowledgeEdge: createLearnerKnowledgeEdgeModel(mongoose),
+    LearnerEvent: createLearnerEventModel(mongoose),
     MessageClarification: createClarificationModel(mongoose),
     VisualizationArtifact: createVisualizationModel(mongoose),
     MessageRevision: createMessageRevisionModel(mongoose),

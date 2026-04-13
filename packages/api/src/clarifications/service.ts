@@ -8,6 +8,7 @@ import type {
 } from '@librechat/data-schemas';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getConfiguredOpenAIBaseURL } from '~/files/native';
+import { recordLearnerObservation } from '~/learners';
 import {
   extractMessageText,
   buildClarificationMessages,
@@ -88,6 +89,28 @@ export interface ClarificationServiceDeps {
   saveMessage: AllMethods['saveMessage'];
   listProjectSources: AllMethods['listProjectSources'];
   getFiles: AllMethods['getFiles'];
+  createLearnerProfile: AllMethods['createLearnerProfile'];
+  getLearnerProfile: AllMethods['getLearnerProfile'];
+  updateLearnerProfile: AllMethods['updateLearnerProfile'];
+  listLearnerKnowledgeNodes: AllMethods['listLearnerKnowledgeNodes'];
+  getLearnerKnowledgeNodeByLabel: AllMethods['getLearnerKnowledgeNodeByLabel'];
+  upsertLearnerKnowledgeNode: AllMethods['upsertLearnerKnowledgeNode'];
+  listLearnerKnowledgeEdges: AllMethods['listLearnerKnowledgeEdges'];
+  upsertLearnerKnowledgeEdge: AllMethods['upsertLearnerKnowledgeEdge'];
+  createLearnerEvent: AllMethods['createLearnerEvent'];
+  listLearnerEvents: AllMethods['listLearnerEvents'];
+}
+
+async function safeRecordChatClarificationObservation(
+  deps: ClarificationServiceDeps,
+  userId: string,
+  payload: Parameters<typeof recordLearnerObservation>[2],
+): Promise<void> {
+  try {
+    await recordLearnerObservation(deps, userId, payload);
+  } catch {
+    // Learner-state updates should not block clarification flows.
+  }
 }
 
 type ClarificationSuggestionOption = {
@@ -449,7 +472,7 @@ export async function createClarification(
     clarificationQuestion: payload.clarificationQuestion,
   });
 
-  return deps.createClarification(userId, {
+  const clarification = await deps.createClarification(userId, {
     projectId: payload.projectId ?? convo.projectId ?? '',
     conversationId: payload.conversationId,
     parentMessageId: payload.parentMessageId,
@@ -462,6 +485,31 @@ export async function createClarification(
     clarificationAnswer,
     status: 'active',
   });
+
+  await safeRecordChatClarificationObservation(deps, userId, {
+    surface: 'chat',
+    eventType: 'chat_clarification',
+    sourceId: payload.conversationId,
+    sourceTitle: resolution.anchorText,
+    summary: `The learner requested a chat clarification on "${resolution.anchorText}".`,
+    payloadJson: {
+      clarificationId: clarification.clarificationId,
+      parentMessageId: payload.parentMessageId,
+      question: payload.clarificationQuestion,
+    },
+    conceptHints: [
+      {
+        label: resolution.anchorText,
+        category: 'concept',
+        mastery: 0.24,
+        confidence: 0.4,
+        evidenceSummary: payload.clarificationQuestion,
+        sourceLabel: resolution.anchorText,
+      },
+    ],
+  });
+
+  return clarification;
 }
 
 export async function listClarifications(

@@ -6,13 +6,96 @@ const {
   buildMessageFiles,
   GenerationJobManager,
   decrementPendingRequest,
+  recordChatTurnLearnerObservation,
   sanitizeMessageForTransmit,
   checkAndIncrementPendingRequest,
 } = require('@librechat/api');
 const { disposeClient, clientRegistry, requestDataMap } = require('~/server/cleanup');
 const { handleAbortError } = require('~/server/middleware');
 const { logViolation } = require('~/cache');
-const { saveMessage } = require('~/models');
+const {
+  saveMessage,
+  createLearnerProfile,
+  getLearnerProfile,
+  updateLearnerProfile,
+  listLearnerKnowledgeNodes,
+  getLearnerKnowledgeNodeByLabel,
+  upsertLearnerKnowledgeNode,
+  listLearnerKnowledgeEdges,
+  upsertLearnerKnowledgeEdge,
+  createLearnerEvent,
+  listLearnerEvents,
+} = require('~/models');
+
+const learnerDeps = {
+  createLearnerProfile,
+  getLearnerProfile,
+  updateLearnerProfile,
+  listLearnerKnowledgeNodes,
+  getLearnerKnowledgeNodeByLabel,
+  upsertLearnerKnowledgeNode,
+  listLearnerKnowledgeEdges,
+  upsertLearnerKnowledgeEdge,
+  createLearnerEvent,
+  listLearnerEvents,
+};
+
+function getMessageText(message) {
+  if (!message) {
+    return '';
+  }
+
+  if (typeof message.text === 'string' && message.text.trim().length > 0) {
+    return message.text;
+  }
+
+  if (typeof message.content === 'string' && message.content.trim().length > 0) {
+    return message.content;
+  }
+
+  if (Array.isArray(message.content)) {
+    return message.content
+      .map((part) => {
+        if (typeof part === 'string') {
+          return part;
+        }
+        if (part && typeof part === 'object' && typeof part.text === 'string') {
+          return part.text;
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return '';
+}
+
+function safeRecordChatTurn(req, conversation, userText, response) {
+  const learnerUserId = req?.user?.id;
+  if (!learnerUserId) {
+    return;
+  }
+
+  const assistantText = getMessageText(response);
+  const promptText = typeof userText === 'string' ? userText : '';
+  if (!promptText.trim() || !assistantText.trim()) {
+    return;
+  }
+
+  void recordChatTurnLearnerObservation(learnerDeps, learnerUserId, {
+    conversationId: conversation?.conversationId ?? response?.conversationId,
+    conversationTitle: conversation?.title ?? null,
+    userText: promptText,
+    assistantText,
+    endpoint: response?.endpoint ?? req?.body?.endpoint ?? null,
+    model: req?.body?.model ?? req?.body?.modelLabel ?? null,
+    isRegenerate: !!req?.body?.isRegenerate,
+    isTemporary: !!req?.body?.isTemporary,
+  }).catch((error) => {
+    logger.warn('[agents request] failed to record chat learner observation', error);
+  });
+}
 
 function createCloseHandler(abortController) {
   return function (manual) {
@@ -298,6 +381,10 @@ const ResumableAgentController = async (req, res, next, initializeClient, addTit
             { ...response, user: userId, unfinished: wasAbortedBeforeComplete },
             { context: 'api/server/controllers/agents/request.js - resumable response end' },
           );
+        }
+
+        if (!wasAbortedBeforeComplete) {
+          safeRecordChatTurn(req, conversation, text, response);
         }
 
         // Check if our job was replaced by a new request before emitting
@@ -682,6 +769,8 @@ const _LegacyAgentController = async (req, res, next, initializeClient, addTitle
           { context: 'api/server/controllers/agents/request.js - response end' },
         );
       }
+
+      safeRecordChatTurn(req, conversation, text, finalResponse);
     }
     // Edge case: sendMessage completed but abort happened during sendCompletion
     // We need to ensure a final event is sent

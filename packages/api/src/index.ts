@@ -33,6 +33,8 @@ export * from './flow/manager';
 export * from './middleware';
 /* Memory */
 export * from './memory';
+/* Learners */
+export * from './learners';
 /* Agents */
 export * from './agents';
 /* Projects */
@@ -43,6 +45,8 @@ export * from './clarifications';
 export * from './visualizations';
 /* Documents */
 export * from './documents';
+/* Dialogs */
+export * from './dialogs';
 /* Prompts */
 export * from './prompts';
 /* Endpoints */

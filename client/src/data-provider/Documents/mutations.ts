@@ -13,6 +13,7 @@ function invalidateDocumentQueries(
 ) {
   queryClient.invalidateQueries([QueryKeys.documents]);
   queryClient.invalidateQueries([QueryKeys.documentWorkspace, documentId]);
+  queryClient.invalidateQueries([QueryKeys.learner]);
 }
 
 export const useCreateStudyDocumentMutation = (): UseMutationResult<

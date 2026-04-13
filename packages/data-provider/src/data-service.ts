@@ -791,6 +791,101 @@ export function deleteProjectSource(
   return request.delete(endpoints.projectSourceById(projectId, sourceId));
 }
 
+export function listDialogs(params?: t.TStudyDialogListParams): Promise<t.TStudyDialog[]> {
+  return request.get(endpoints.dialogs(params));
+}
+
+export function createDialog(payload: t.TStudyDialogCreateRequest): Promise<t.TDialogWorkspace> {
+  return request.post(endpoints.dialogs(), payload);
+}
+
+export function createStarterDialog(
+  payload: t.TStudyDialogStarterRequest,
+): Promise<t.TDialogWorkspace> {
+  return request.post(endpoints.dialogStarter(), payload);
+}
+
+export function getDialogWorkspace(dialogId: string): Promise<t.TDialogWorkspace> {
+  return request.get(endpoints.dialogById(dialogId));
+}
+
+export function getDialogTutorWorkspace(dialogId: string): Promise<t.TDialogTutorWorkspace> {
+  return request.get(endpoints.dialogTutor(dialogId));
+}
+
+export function getLearnerWorkspace(): Promise<t.TLearnerWorkspace> {
+  return request.get(endpoints.learnerProfile());
+}
+
+export function updateDialog(payload: t.TStudyDialogUpdateRequest): Promise<t.TDialogWorkspace> {
+  const { dialogId, ...data } = payload;
+  return request.patch(endpoints.dialogById(dialogId), data);
+}
+
+export function createDialogCell(payload: t.TDialogCellCreateRequest): Promise<t.TDialogWorkspace> {
+  const { dialogId, ...data } = payload;
+  return request.post(endpoints.dialogCells(dialogId), data);
+}
+
+export function updateDialogCell(payload: t.TDialogCellUpdateRequest): Promise<t.TDialogWorkspace> {
+  const { dialogId, cellId, ...data } = payload;
+  return request.patch(endpoints.dialogCellById(dialogId, cellId), data);
+}
+
+export function executeDialogCell(
+  payload: t.TDialogCellExecuteRequest,
+): Promise<t.TDialogWorkspace> {
+  return request.post(endpoints.dialogCellExecute(payload.dialogId, payload.cellId), {});
+}
+
+export function selectDialogTrajectory(
+  payload: t.TDialogTrajectorySelectRequest,
+): Promise<t.TDialogWorkspace> {
+  const { dialogId, trajectoryKey } = payload;
+  return request.post(endpoints.dialogTrajectory(dialogId), { trajectoryKey });
+}
+
+export function runDialogTutorAction(
+  payload: t.TDialogTutorActionRequest,
+): Promise<t.TDialogTutorActionResponse> {
+  const { dialogId, ...data } = payload;
+  return request.post(endpoints.dialogTutorAction(dialogId), data);
+}
+
+export function createDialogClarification(
+  payload: t.TDialogClarificationCreateRequest,
+): Promise<t.TDialogClarification> {
+  const { dialogId, cellId, ...data } = payload;
+  return request.post(endpoints.dialogClarifications(dialogId, cellId), data);
+}
+
+export function integrateDialogClarification(
+  payload: t.TDialogClarificationIntegrateRequest,
+): Promise<t.TDialogClarification> {
+  const { clarificationId, ...data } = payload;
+  return request.post(endpoints.dialogClarificationIntegrate(clarificationId), data);
+}
+
+export function createDialogVisualization(
+  payload: t.TDialogVisualizationCreateRequest,
+): Promise<t.TDialogVisualization> {
+  const { dialogId, cellId, ...data } = payload;
+  return request.post(endpoints.dialogVisualizations(dialogId, cellId), data);
+}
+
+export function integrateDialogVisualization(
+  payload: t.TDialogVisualizationIntegrateRequest,
+): Promise<t.TDialogVisualization> {
+  const { visualizationId, ...data } = payload;
+  return request.post(endpoints.dialogVisualizationIntegrate(visualizationId), data);
+}
+
+export function deleteDialogVisualization(
+  visualizationId: string,
+): Promise<t.TDialogVisualization> {
+  return request.delete(endpoints.dialogVisualizationById(visualizationId));
+}
+
 export function listStudyDocuments(
   params?: t.TStudyDocumentListParams,
 ): Promise<t.TStudyDocument[]> {

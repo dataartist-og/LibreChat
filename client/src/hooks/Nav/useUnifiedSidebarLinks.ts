@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
-import { FileText, MessageSquare } from 'lucide-react';
+import { BookOpenText, FileText, MessageSquare } from 'lucide-react';
 import { useUserKeyQuery } from 'librechat-data-provider/react-query';
 import { getConfigDefaults, getEndpointField } from 'librechat-data-provider';
 import type { TEndpointsConfig } from 'librechat-data-provider';
 import type { NavLink } from '~/common';
+import { DialogsSection } from '~/components/Dialogs';
 import { DocumentsSection } from '~/components/Documents';
 import ConversationsSection from '~/components/UnifiedSidebar/ConversationsSection';
 import { useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
@@ -67,7 +68,15 @@ export default function useUnifiedSidebarLinks() {
       Component: DocumentsSection,
     };
 
-    return [conversationLink, documentsLink, ...sideNavLinks];
+    const dialogsLink: NavLink = {
+      title: 'com_ui_dialogs',
+      label: '',
+      icon: BookOpenText,
+      id: 'dialogs',
+      Component: DialogsSection,
+    };
+
+    return [conversationLink, dialogsLink, documentsLink, ...sideNavLinks];
   }, [sideNavLinks]);
 
   return links;

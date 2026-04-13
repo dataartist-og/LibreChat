@@ -1,9 +1,11 @@
 export * from './Auth';
 export * from './Agents';
 export * from './Clarifications';
+export * from './Dialogs';
 export * from './Documents';
 export * from './Endpoints';
 export * from './Files';
+export * from './Learners';
 /* Memories */
 export * from './Memories';
 export * from './Messages';

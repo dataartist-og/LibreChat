@@ -10,6 +10,7 @@ const adminUsers = require('./admin/users');
 const endpoints = require('./endpoints');
 const staticRoute = require('./static');
 const messages = require('./messages');
+const learners = require('./learners');
 const memories = require('./memories');
 const presets = require('./presets');
 const prompts = require('./prompts');
@@ -23,6 +24,7 @@ const convos = require('./convos');
 const projects = require('./projects');
 const conversations = require('./conversations');
 const clarifications = require('./clarifications');
+const dialogs = require('./dialogs');
 const documents = require('./documents');
 const visualizations = require('./visualizations');
 const config = require('./config');
@@ -60,6 +62,7 @@ module.exports = {
   projects,
   conversations,
   clarifications,
+  dialogs,
   documents,
   visualizations,
   search,
@@ -70,6 +73,7 @@ module.exports = {
   presets,
   balance,
   messages,
+  learners,
   memories,
   endpoints,
   assistants,

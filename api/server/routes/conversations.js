@@ -23,6 +23,16 @@ const deps = {
   saveMessage: db.saveMessage,
   listProjectSources: db.listProjectSources,
   getFiles: db.getFiles,
+  createLearnerProfile: db.createLearnerProfile,
+  getLearnerProfile: db.getLearnerProfile,
+  updateLearnerProfile: db.updateLearnerProfile,
+  listLearnerKnowledgeNodes: db.listLearnerKnowledgeNodes,
+  getLearnerKnowledgeNodeByLabel: db.getLearnerKnowledgeNodeByLabel,
+  upsertLearnerKnowledgeNode: db.upsertLearnerKnowledgeNode,
+  listLearnerKnowledgeEdges: db.listLearnerKnowledgeEdges,
+  upsertLearnerKnowledgeEdge: db.upsertLearnerKnowledgeEdge,
+  createLearnerEvent: db.createLearnerEvent,
+  listLearnerEvents: db.listLearnerEvents,
 };
 
 function handleClarificationError(res, error) {

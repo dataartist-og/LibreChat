@@ -25,6 +25,23 @@ export {
   documentClarificationSchema,
   documentVisualizationSchema,
 } from './document';
+export {
+  studyDialogSchema,
+  dialogCellSchema,
+  dialogExecutionRunSchema,
+  dialogPlanNodeSchema,
+  dialogTutorStateSchema,
+  dialogImportSchema,
+  dialogSourceMapSchema,
+  dialogClarificationSchema,
+  dialogVisualizationSchema,
+} from './dialog';
+export {
+  learnerProfileSchema,
+  learnerKnowledgeNodeSchema,
+  learnerKnowledgeEdgeSchema,
+  learnerEventSchema,
+} from './learner';
 export { default as promptSchema } from './prompt';
 export { default as promptGroupSchema } from './promptGroup';
 export { default as roleSchema } from './role';

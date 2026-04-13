@@ -42,6 +42,16 @@ const deps = {
   listDocumentVisualizations: db.listDocumentVisualizations,
   getDocumentVisualization: db.getDocumentVisualization,
   updateDocumentVisualization: db.updateDocumentVisualization,
+  createLearnerProfile: db.createLearnerProfile,
+  getLearnerProfile: db.getLearnerProfile,
+  updateLearnerProfile: db.updateLearnerProfile,
+  listLearnerKnowledgeNodes: db.listLearnerKnowledgeNodes,
+  getLearnerKnowledgeNodeByLabel: db.getLearnerKnowledgeNodeByLabel,
+  upsertLearnerKnowledgeNode: db.upsertLearnerKnowledgeNode,
+  listLearnerKnowledgeEdges: db.listLearnerKnowledgeEdges,
+  upsertLearnerKnowledgeEdge: db.upsertLearnerKnowledgeEdge,
+  createLearnerEvent: db.createLearnerEvent,
+  listLearnerEvents: db.listLearnerEvents,
 };
 
 function setRenderHeaders(res, mimeType) {

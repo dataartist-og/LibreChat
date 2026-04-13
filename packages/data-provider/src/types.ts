@@ -5,6 +5,26 @@ import type {
   TDocumentClarification,
   TDocumentVisualization,
   TDocumentWorkspace,
+  TDialogCell,
+  TDialogCellAnchor,
+  TDialogClarification,
+  TDialogExecutionRun,
+  TDialogImport,
+  TDialogPlanNode,
+  TDialogSourceMap,
+  TDialogTutorAction,
+  TDialogTutorActionResponse,
+  TDialogTutorState,
+  TDialogTutorWorkspace,
+  TLearnerEvent,
+  TLearnerKnowledgeEdge,
+  TLearnerKnowledgeNode,
+  TLearnerProfile,
+  TLearnerWorkspace,
+  TDialogVisualization,
+  TDialogWorkspace,
+  TDialogTrajectory,
+  TStudyDialog,
   TStudyDocument,
   EModelEndpoint,
   TConversation,
@@ -322,6 +342,91 @@ export type TStudyDocumentReingestRequest = {
   documentId: string;
 };
 
+export type TLearnerWorkspaceRequest = void;
+
+export type TStudyDialogListParams = {
+  projectId?: string | null;
+};
+
+export type TStudyDialogCreateRequest = {
+  projectId?: string | null;
+  title?: string | null;
+  description?: string | null;
+  teachingMode?: 'teach_me' | 'hint_mode' | 'explain_then_do' | 'just_do_it';
+};
+
+export type TStudyDialogStarterRequest = {
+  projectId?: string | null;
+  documentId?: string | null;
+  repoUrl?: string | null;
+  title?: string | null;
+  teachingMode?: 'teach_me' | 'hint_mode' | 'explain_then_do' | 'just_do_it';
+};
+
+export type TStudyDialogUpdateRequest = {
+  dialogId: string;
+  title?: string | null;
+  description?: string | null;
+  teachingMode?: 'teach_me' | 'hint_mode' | 'explain_then_do' | 'just_do_it';
+};
+
+export type TDialogCellCreateRequest = {
+  dialogId: string;
+  cellType: 'note' | 'code' | 'prompt' | 'output' | 'terminal';
+  title?: string | null;
+  sourceMarkdown?: string | null;
+  sourceCode?: string | null;
+};
+
+export type TDialogCellUpdateRequest = {
+  dialogId: string;
+  cellId: string;
+  title?: string | null;
+  sourceMarkdown?: string | null;
+  sourceCode?: string | null;
+};
+
+export type TDialogCellExecuteRequest = {
+  dialogId: string;
+  cellId: string;
+};
+
+export type TDialogTrajectorySelectRequest = {
+  dialogId: string;
+  trajectoryKey: string;
+};
+
+export type TDialogTutorActionRequest = {
+  dialogId: string;
+  action: TDialogTutorAction;
+  nodeId?: string | null;
+};
+
+export type TDialogClarificationCreateRequest = {
+  dialogId: string;
+  cellId: string;
+  anchor: TDialogCellAnchor;
+  clarificationQuestion: string;
+};
+
+export type TDialogClarificationIntegrateRequest = {
+  clarificationId: string;
+  displayMode?: 'integrated' | 'nested';
+};
+
+export type TDialogVisualizationCreateRequest = {
+  dialogId: string;
+  cellId: string;
+  anchor: TDialogCellAnchor;
+  prompt: string;
+  artifactType: TVisualizationArtifactType;
+};
+
+export type TDialogVisualizationIntegrateRequest = {
+  visualizationId: string;
+  displayMode?: 'integrated' | 'nested';
+};
+
 export type TDocumentClarificationCreateRequest = {
   documentId: string;
   renderVersionId: string;
@@ -469,7 +574,31 @@ export type TVisualizationSuggestionRequest = {
   existingClarifications?: TExistingClarificationContext[];
 };
 
-export type { TStudyDocument, TDocumentWorkspace, TDocumentClarification, TDocumentVisualization };
+export type {
+  TStudyDocument,
+  TStudyDialog,
+  TDialogTrajectory,
+  TDialogCell,
+  TDialogPlanNode,
+  TDialogImport,
+  TDialogSourceMap,
+  TDialogTutorState,
+  TDialogTutorWorkspace,
+  TLearnerProfile,
+  TLearnerKnowledgeNode,
+  TLearnerKnowledgeEdge,
+  TLearnerEvent,
+  TLearnerWorkspace,
+  TDialogTutorAction,
+  TDialogTutorActionResponse,
+  TDialogClarification,
+  TDialogVisualization,
+  TDialogExecutionRun,
+  TDialogWorkspace,
+  TDocumentWorkspace,
+  TDocumentClarification,
+  TDocumentVisualization,
+};
 
 export type TDeleteConversationRequest = {
   conversationId?: string;

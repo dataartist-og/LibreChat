@@ -16,6 +16,7 @@ function invalidateClarificationQueries(
   queryClient.invalidateQueries([QueryKeys.clarifications, conversationId]);
   queryClient.invalidateQueries([QueryKeys.messages, conversationId]);
   queryClient.invalidateQueries([QueryKeys.messageRevisions, parentMessageId]);
+  queryClient.invalidateQueries([QueryKeys.learner]);
 }
 
 export const useCreateClarificationMutation = (): UseMutationResult<
@@ -27,7 +28,8 @@ export const useCreateClarificationMutation = (): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation([MutationKeys.createClarification], {
-    mutationFn: (payload: t.TClarificationCreateRequest) => dataService.createClarification(payload),
+    mutationFn: (payload: t.TClarificationCreateRequest) =>
+      dataService.createClarification(payload),
     onMutate: (payload) => ({
       conversationId: payload.conversationId,
       parentMessageId: payload.parentMessageId,
@@ -36,11 +38,7 @@ export const useCreateClarificationMutation = (): UseMutationResult<
       if (!context) {
         return;
       }
-      invalidateClarificationQueries(
-        queryClient,
-        context.conversationId,
-        context.parentMessageId,
-      );
+      invalidateClarificationQueries(queryClient, context.conversationId, context.parentMessageId);
     },
   });
 };
@@ -54,8 +52,11 @@ export const useUpdateClarificationMutation = (): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation([MutationKeys.updateClarification], {
-    mutationFn: ({ conversationId: _conversationId, parentMessageId: _parentMessageId, ...payload }) =>
-      dataService.updateClarification(payload),
+    mutationFn: ({
+      conversationId: _conversationId,
+      parentMessageId: _parentMessageId,
+      ...payload
+    }) => dataService.updateClarification(payload),
     onMutate: ({ conversationId, parentMessageId }) => ({
       conversationId,
       parentMessageId,
@@ -64,11 +65,7 @@ export const useUpdateClarificationMutation = (): UseMutationResult<
       if (!context) {
         return;
       }
-      invalidateClarificationQueries(
-        queryClient,
-        context.conversationId,
-        context.parentMessageId,
-      );
+      invalidateClarificationQueries(queryClient, context.conversationId, context.parentMessageId);
     },
   });
 };
@@ -82,8 +79,11 @@ export const useIntegrateClarificationMutation = (): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation([MutationKeys.integrateClarification], {
-    mutationFn: ({ conversationId: _conversationId, parentMessageId: _parentMessageId, ...payload }) =>
-      dataService.integrateClarification(payload),
+    mutationFn: ({
+      conversationId: _conversationId,
+      parentMessageId: _parentMessageId,
+      ...payload
+    }) => dataService.integrateClarification(payload),
     onMutate: ({ conversationId, parentMessageId }) => ({
       conversationId,
       parentMessageId,
@@ -92,11 +92,7 @@ export const useIntegrateClarificationMutation = (): UseMutationResult<
       if (!context) {
         return;
       }
-      invalidateClarificationQueries(
-        queryClient,
-        context.conversationId,
-        context.parentMessageId,
-      );
+      invalidateClarificationQueries(queryClient, context.conversationId, context.parentMessageId);
     },
   });
 };
@@ -110,8 +106,11 @@ export const useReanchorClarificationMutation = (): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation([MutationKeys.reanchorClarification], {
-    mutationFn: ({ conversationId: _conversationId, parentMessageId: _parentMessageId, ...payload }) =>
-      dataService.reanchorClarification(payload),
+    mutationFn: ({
+      conversationId: _conversationId,
+      parentMessageId: _parentMessageId,
+      ...payload
+    }) => dataService.reanchorClarification(payload),
     onMutate: ({ conversationId, parentMessageId }) => ({
       conversationId,
       parentMessageId,
@@ -120,11 +119,7 @@ export const useReanchorClarificationMutation = (): UseMutationResult<
       if (!context) {
         return;
       }
-      invalidateClarificationQueries(
-        queryClient,
-        context.conversationId,
-        context.parentMessageId,
-      );
+      invalidateClarificationQueries(queryClient, context.conversationId, context.parentMessageId);
     },
   });
 };

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FileText, Search, Upload } from 'lucide-react';
 import { Spinner, useToastContext } from '@librechat/client';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLocalize } from '~/hooks';
 import { useUploadFileMutation } from '~/data-provider/Files/mutations';
 import { useCreateStudyDocumentMutation, useStudyDocumentsQuery } from '~/data-provider/Documents';
@@ -10,7 +10,6 @@ export default function DocumentsSection() {
   const inputRef = useRef<HTMLInputElement>(null);
   const localize = useLocalize();
   const navigate = useNavigate();
-  const location = useLocation();
   const { documentId } = useParams();
   const { showToast } = useToastContext();
   const [search, setSearch] = useState('');
@@ -80,19 +79,6 @@ export default function DocumentsSection() {
       </div>
     );
   };
-
-  useEffect(() => {
-    if (location.pathname.startsWith('/docs')) {
-      return;
-    }
-
-    if (documents[0]?.documentId) {
-      navigate(`/docs/${documents[0].documentId}`, { replace: true });
-      return;
-    }
-
-    navigate('/docs', { replace: true });
-  }, [documents, location.pathname, navigate]);
 
   const handleUpload = async (file: File) => {
     const formData = new FormData();

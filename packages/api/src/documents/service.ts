@@ -17,6 +17,7 @@ import type {
 } from '@librechat/data-schemas';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getConfiguredOpenAIBaseURL } from '~/files/native';
+import { recordLearnerObservation } from '~/learners';
 import { persistVisualizationPayload, loadVisualizationPayload } from '~/visualizations/storage';
 import { sanitizeVisualizationByType } from '~/visualizations/sanitize';
 import { detectSourceKind, normalizeDocumentText, resolveSourceMimeType } from './normalize';
@@ -108,6 +109,28 @@ export interface DocumentServiceDeps {
   listDocumentVisualizations: AllMethods['listDocumentVisualizations'];
   getDocumentVisualization: AllMethods['getDocumentVisualization'];
   updateDocumentVisualization: AllMethods['updateDocumentVisualization'];
+  createLearnerProfile: AllMethods['createLearnerProfile'];
+  getLearnerProfile: AllMethods['getLearnerProfile'];
+  updateLearnerProfile: AllMethods['updateLearnerProfile'];
+  listLearnerKnowledgeNodes: AllMethods['listLearnerKnowledgeNodes'];
+  getLearnerKnowledgeNodeByLabel: AllMethods['getLearnerKnowledgeNodeByLabel'];
+  upsertLearnerKnowledgeNode: AllMethods['upsertLearnerKnowledgeNode'];
+  listLearnerKnowledgeEdges: AllMethods['listLearnerKnowledgeEdges'];
+  upsertLearnerKnowledgeEdge: AllMethods['upsertLearnerKnowledgeEdge'];
+  createLearnerEvent: AllMethods['createLearnerEvent'];
+  listLearnerEvents: AllMethods['listLearnerEvents'];
+}
+
+async function safeRecordDocumentObservation(
+  deps: DocumentServiceDeps,
+  userId: string,
+  payload: Parameters<typeof recordLearnerObservation>[2],
+): Promise<void> {
+  try {
+    await recordLearnerObservation(deps, userId, payload);
+  } catch {
+    // Learner-state updates should not block document flows.
+  }
 }
 
 function getOpenAIClient(): OpenAI {
@@ -708,7 +731,7 @@ export async function createDocumentClarification(
   const answer =
     completion.choices[0]?.message?.content?.trim() || 'No clarification answer was generated.';
 
-  return deps.createDocumentClarification(userId, {
+  const clarification = await deps.createDocumentClarification(userId, {
     documentId: document.documentId,
     renderVersionId: renderVersion.renderVersionId,
     anchor: {
@@ -723,6 +746,32 @@ export async function createDocumentClarification(
     status: 'active',
     integratedAt: null,
   });
+
+  await safeRecordDocumentObservation(deps, userId, {
+    surface: 'document',
+    eventType: 'document_clarification',
+    sourceId: document.documentId,
+    sourceTitle: document.title,
+    summary: `The learner requested a document clarification on "${payload.anchor.anchorText}" in ${document.title}.`,
+    payloadJson: {
+      clarificationId: clarification.clarificationId,
+      renderVersionId: renderVersion.renderVersionId,
+      headingPath: clarification.anchor.headingPath,
+      question: payload.clarificationQuestion.trim(),
+    },
+    conceptHints: [
+      {
+        label: clarification.anchor.headingPath?.at(-1) ?? payload.anchor.anchorText,
+        category: 'concept',
+        mastery: 0.26,
+        confidence: 0.42,
+        evidenceSummary: payload.clarificationQuestion.trim(),
+        sourceLabel: payload.anchor.anchorText,
+      },
+    ],
+  });
+
+  return clarification;
 }
 
 export async function integrateDocumentClarification(
@@ -875,7 +924,7 @@ export async function createDocumentVisualization(
     generated,
   );
 
-  return deps.createDocumentVisualization(userId, {
+  const visualization = await deps.createDocumentVisualization(userId, {
     visualizationId,
     documentId: document.documentId,
     renderVersionId: renderVersion.renderVersionId,
@@ -904,6 +953,32 @@ export async function createDocumentVisualization(
     integratedAt: null,
     deletedAt: null,
   });
+
+  await safeRecordDocumentObservation(deps, userId, {
+    surface: 'document',
+    eventType: 'document_visualization',
+    sourceId: document.documentId,
+    sourceTitle: document.title,
+    summary: `The learner requested a ${payload.artifactType} document visualization for "${payload.anchor.anchorText}" in ${document.title}.`,
+    payloadJson: {
+      visualizationId: visualization.visualizationId,
+      renderVersionId: renderVersion.renderVersionId,
+      artifactType: payload.artifactType,
+      prompt,
+    },
+    conceptHints: [
+      {
+        label: visualization.anchor.headingPath?.at(-1) ?? payload.anchor.anchorText,
+        category: 'bridge',
+        mastery: 0.3,
+        confidence: 0.45,
+        evidenceSummary: prompt,
+        sourceLabel: payload.anchor.anchorText,
+      },
+    ],
+  });
+
+  return visualization;
 }
 
 export async function integrateDocumentVisualization(

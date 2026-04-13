@@ -165,10 +165,12 @@ const startServer = async () => {
   app.use('/api/user', routes.user);
   app.use('/api/search', routes.search);
   app.use('/api/messages', routes.messages);
+  app.use('/api/learners', routes.learners);
   app.use('/api/convos', routes.convos);
   app.use('/api/projects', routes.projects);
   app.use('/api/conversations', routes.conversations);
   app.use('/api/clarifications', routes.clarifications);
+  app.use('/api/dialogs', routes.dialogs);
   app.use('/api/documents', routes.documents);
   app.use('/api/visualizations', routes.visualizations);
   app.use('/api/presets', routes.presets);
