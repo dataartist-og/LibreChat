@@ -5,6 +5,7 @@ import type {
   TDocumentAnchor,
   TDocumentBlock,
   TDocumentClarification,
+  TDocumentSpeechHighlightMode,
   TDocumentVisualization,
   TDocumentWorkspace,
   TVisualizationArtifactType,
@@ -16,6 +17,7 @@ import {
   useCreateDocumentClarificationMutation,
   useCreateDocumentVisualizationMutation,
 } from '~/data-provider/Documents';
+import type { DocumentSpeechActiveState } from './Speech';
 import DocumentClarificationCard from './ClarificationCard';
 import DocumentVisualizationCard from './VisualizationCard';
 
@@ -277,7 +279,13 @@ function groupAnchors(
   );
 }
 
-function DocumentBlockBody({ block, asset }: { block: TDocumentBlock; asset?: DocumentAsset | null }) {
+function DocumentBlockBody({
+  block,
+  asset,
+}: {
+  block: TDocumentBlock;
+  asset?: DocumentAsset | null;
+}) {
   const normalizedContent = decodeDocumentMarkdown(block.contentMarkdown);
   const markdownClassName =
     "markdown prose prose-sm message-content dark:prose-invert max-w-none break-words text-text-primary dark:text-gray-100 [&_.katex-error]:whitespace-pre-wrap [&_.katex-error]:text-text-primary dark:[&_.katex-error]:text-gray-100";
@@ -316,7 +324,15 @@ function DocumentBlockBody({ block, asset }: { block: TDocumentBlock; asset?: Do
   );
 }
 
-export default function DocumentViewer({ workspace }: { workspace: TDocumentWorkspace }) {
+export default function DocumentViewer({
+  workspace,
+  activeSpeech = null,
+  highlightMode = 'off',
+}: {
+  workspace: TDocumentWorkspace;
+  activeSpeech?: DocumentSpeechActiveState | null;
+  highlightMode?: TDocumentSpeechHighlightMode;
+}) {
   const localize = useLocalize();
   const viewerRef = useRef<HTMLDivElement>(null);
   const createClarificationMutation = useCreateDocumentClarificationMutation();
@@ -485,6 +501,7 @@ export default function DocumentViewer({ workspace }: { workspace: TDocumentWork
     <>
       <div
         ref={viewerRef}
+        data-document-viewer="true"
         className="h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-10"
         onMouseUpCapture={handleSelectionCapture}
         onKeyUpCapture={handleSelectionCapture}
@@ -500,10 +517,15 @@ export default function DocumentViewer({ workspace }: { workspace: TDocumentWork
                 key={block.blockId}
                 id={`document-block-${block.blockId}`}
                 data-document-block-id={block.blockId}
-                className={`group relative rounded-2xl border px-4 py-4 ${
+                tabIndex={-1}
+                className={`group relative rounded-2xl border px-4 py-4 transition ${
                   groups.length > 0
                     ? 'border-border-medium bg-surface-primary'
                     : 'border-transparent'
+                } ${
+                  activeSpeech?.blockId === block.blockId && highlightMode !== 'off'
+                    ? 'border-emerald-500/60 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]'
+                    : ''
                 }`}
               >
                 {blockAnchor ? (
@@ -522,6 +544,14 @@ export default function DocumentViewer({ workspace }: { workspace: TDocumentWork
                     >
                       {localize('com_ui_visualize')}
                     </button>
+                  </div>
+                ) : null}
+
+                {activeSpeech?.blockId === block.blockId &&
+                highlightMode === 'excerpt' &&
+                activeSpeech.excerpt ? (
+                  <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-text-primary">
+                    {activeSpeech.excerpt}
                   </div>
                 ) : null}
 

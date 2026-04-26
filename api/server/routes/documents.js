@@ -12,7 +12,11 @@ const {
   integrateDocumentVisualization,
   deleteDocumentVisualization,
   getDocumentVisualizationRenderPayload,
+  getOrCreateDocumentSpeechManifest,
+  getOrCreateDocumentSpeechAudioArtifact,
+  getDocumentSpeechAudioPayload,
 } = require('@librechat/api');
+const { configMiddleware } = require('~/server/middleware');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
 const db = require('~/models');
 
@@ -42,6 +46,15 @@ const deps = {
   listDocumentVisualizations: db.listDocumentVisualizations,
   getDocumentVisualization: db.getDocumentVisualization,
   updateDocumentVisualization: db.updateDocumentVisualization,
+  upsertDocumentSpeechPlan: db.upsertDocumentSpeechPlan,
+  getDocumentSpeechPlan: db.getDocumentSpeechPlan,
+  upsertDocumentSpeechSegments: db.upsertDocumentSpeechSegments,
+  listDocumentSpeechSegments: db.listDocumentSpeechSegments,
+  getDocumentSpeechSegment: db.getDocumentSpeechSegment,
+  upsertDocumentSpeechAudioArtifact: db.upsertDocumentSpeechAudioArtifact,
+  listDocumentSpeechAudioArtifacts: db.listDocumentSpeechAudioArtifacts,
+  getDocumentSpeechAudioArtifact: db.getDocumentSpeechAudioArtifact,
+  createFile: db.createFile,
   createLearnerProfile: db.createLearnerProfile,
   getLearnerProfile: db.getLearnerProfile,
   updateLearnerProfile: db.updateLearnerProfile,
@@ -79,7 +92,9 @@ function handleDocumentError(res, error) {
     error.message === 'Document render version not found' ||
     error.message === 'Document clarification not found' ||
     error.message === 'Document visualization not found' ||
-    error.message === 'Source file not found'
+    error.message === 'Source file not found' ||
+    error.message === 'Document speech segment not found' ||
+    error.message === 'Document speech audio not found'
   ) {
     return res.status(404).json({ error: error.message });
   }
@@ -88,6 +103,7 @@ function handleDocumentError(res, error) {
 }
 
 router.use(requireJwtAuth);
+router.use(configMiddleware);
 
 router.get('/', async (req, res) => {
   try {
@@ -213,6 +229,64 @@ router.post('/:documentId/visualizations', async (req, res) => {
       },
     );
     res.status(201).json(visualization);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.post('/:documentId/speech/manifest', async (req, res) => {
+  try {
+    const manifest = await getOrCreateDocumentSpeechManifest(
+      deps,
+      req.user.id,
+      req.params.documentId,
+      req.body,
+      {
+        appConfig: req.config,
+      },
+    );
+    res.status(200).json(manifest);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.post('/:documentId/speech/audio', async (req, res) => {
+  try {
+    const artifact = await getOrCreateDocumentSpeechAudioArtifact(
+      deps,
+      req.user.id,
+      req.params.documentId,
+      req.body,
+      {
+        appConfig: req.config,
+      },
+    );
+    res.status(200).json(artifact);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.get('/:documentId/speech/audio/:audioArtifactId', async (req, res) => {
+  try {
+    const payload = await getDocumentSpeechAudioPayload(
+      deps,
+      req.user.id,
+      req.params.documentId,
+      req.params.audioArtifactId,
+    );
+
+    res.set({
+      'Cache-Control': 'private, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.type(payload.mimeType);
+    res.sendFile(payload.filePath, {
+      headers: {
+        'Content-Disposition': `inline; filename="${payload.filename}"`,
+      },
+    });
   } catch (error) {
     handleDocumentError(res, error);
   }

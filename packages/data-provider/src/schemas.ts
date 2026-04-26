@@ -1048,6 +1048,31 @@ export const dialogTeachingModeSchema = z.enum([
 
 export const documentClarificationStatusSchema = z.enum(['active', 'integrated', 'archived']);
 
+export const documentSpeechSegmentKindSchema = z.enum([
+  'text',
+  'heading',
+  'caption',
+  'table_summary',
+  'figure_summary',
+  'math_inline_rewrite',
+  'math_block_narration',
+  'pause_for_visual',
+  'resume_after_pause',
+]);
+
+export const documentSpeechPlaybackDirectiveSchema = z.enum(['continue', 'pause_for_visual']);
+
+export const documentSpeechAudioStatusSchema = z.enum([
+  'pending',
+  'ready',
+  'failed',
+  'not_required',
+]);
+
+export const documentSpeechHighlightModeSchema = z.enum(['off', 'excerpt', 'block']);
+
+export type TDocumentSpeechHighlightMode = z.infer<typeof documentSpeechHighlightModeSchema>;
+
 export const tDocumentAnchorSchema = z.object({
   blockId: z.string(),
   blockType: documentBlockTypeSchema,
@@ -1762,6 +1787,96 @@ export const tDocumentVisualizationSchema = z.object({
 });
 
 export type TDocumentVisualization = z.infer<typeof tDocumentVisualizationSchema>;
+
+export const tDocumentSpeechProfileSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  voice: z.string(),
+  language: z.string().nullable().optional(),
+  format: z.string(),
+  rate: z.number().nullable().optional(),
+});
+
+export type TDocumentSpeechProfile = z.infer<typeof tDocumentSpeechProfileSchema>;
+
+export const tDocumentSpeechProfileInputSchema = z.object({
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  voice: z.string().optional(),
+  language: z.string().nullable().optional(),
+  format: z.string().optional(),
+  rate: z.number().nullable().optional(),
+});
+
+export type TDocumentSpeechProfileInput = z.infer<typeof tDocumentSpeechProfileInputSchema>;
+
+export const tDocumentSpeechAlignmentSchema = z.object({
+  char_start_times_ms: z.array(z.number()),
+  chars_durations_ms: z.array(z.number()),
+  chars: z.array(z.string()),
+});
+
+export type TDocumentSpeechAlignment = z.infer<typeof tDocumentSpeechAlignmentSchema>;
+
+export const tDocumentSpeechAudioArtifactSchema = z.object({
+  audioArtifactId: z.string(),
+  segmentId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  speechProfile: tDocumentSpeechProfileSchema,
+  audioCacheKey: z.string(),
+  fileId: z.string().nullable().optional(),
+  mimeType: z.string(),
+  durationMs: z.number().nullable().optional(),
+  alignment: tDocumentSpeechAlignmentSchema.nullable().optional(),
+  audioUrl: z.string().nullable().optional(),
+  status: documentSpeechAudioStatusSchema,
+  errorMessage: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type TDocumentSpeechAudioArtifact = z.infer<typeof tDocumentSpeechAudioArtifactSchema>;
+
+export const tDocumentSpeechSegmentSchema = z.object({
+  segmentId: z.string(),
+  planId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  blockId: z.string(),
+  charStart: z.number().nullable().optional(),
+  charEnd: z.number().nullable().optional(),
+  segmentIndex: z.number(),
+  segmentKind: documentSpeechSegmentKindSchema,
+  sourceText: z.string(),
+  sourceContextBefore: z.string(),
+  sourceContextAfter: z.string(),
+  sourceFingerprint: z.string(),
+  spokenText: z.string(),
+  spokenFingerprint: z.string(),
+  playbackDirective: documentSpeechPlaybackDirectiveSchema,
+  focusBlockId: z.string().nullable().optional(),
+  resumeToken: z.string().nullable().optional(),
+  warnings: z.array(z.string()),
+  narrationModel: z.string().nullable().optional(),
+  audio: tDocumentSpeechAudioArtifactSchema.nullable().optional(),
+});
+
+export type TDocumentSpeechSegment = z.infer<typeof tDocumentSpeechSegmentSchema>;
+
+export const tDocumentSpeechManifestSchema = z.object({
+  planId: z.string(),
+  documentId: z.string(),
+  renderVersionId: z.string(),
+  speechSurfaceFingerprint: z.string(),
+  narrationPolicyVersion: z.string(),
+  resolvedProfile: tDocumentSpeechProfileSchema,
+  segments: z.array(tDocumentSpeechSegmentSchema),
+  startSegmentId: z.string().nullable().optional(),
+  nextPrefetchSegmentIds: z.array(z.string()),
+});
+
+export type TDocumentSpeechManifest = z.infer<typeof tDocumentSpeechManifestSchema>;
 
 export const tDocumentWorkspaceSchema = z.object({
   document: tStudyDocumentSchema,

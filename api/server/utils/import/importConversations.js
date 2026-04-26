@@ -5,6 +5,16 @@ const { getImporter } = require('./importers');
 
 const maxFileSize = resolveImportMaxFileSize();
 
+function createImportResponse(result) {
+  return {
+    message: 'Conversation(s) imported successfully',
+    importedCount: result?.importedCount,
+    skippedCount: result?.skippedCount,
+    totalCount: result?.totalCount,
+    source: result?.source,
+  };
+}
+
 /**
  * Job definition for importing a conversation.
  * @param {{ filepath: string, requestUserId: string, userRole?: string }} job
@@ -24,8 +34,9 @@ const importConversations = async (job) => {
     const fileData = await fs.readFile(filepath, 'utf8');
     const jsonData = JSON.parse(fileData);
     const importer = getImporter(jsonData);
-    await importer(jsonData, requestUserId, undefined, userRole);
+    const result = await importer(jsonData, requestUserId, undefined, userRole);
     logger.debug(`user: ${requestUserId} | Finished importing conversations`);
+    return createImportResponse(result);
   } catch (error) {
     logger.error(`user: ${requestUserId} | Failed to import conversation: `, error);
     throw error; // throw error all the way up so request does not return success

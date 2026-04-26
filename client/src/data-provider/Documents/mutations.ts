@@ -179,3 +179,36 @@ export const useDeleteDocumentVisualizationMutation = (): UseMutationResult<
     },
   });
 };
+
+export const useCreateDocumentSpeechManifestMutation = (): UseMutationResult<
+  t.TDocumentSpeechManifest,
+  unknown,
+  t.TDocumentSpeechManifestRequest,
+  void
+> =>
+  useMutation([MutationKeys.createDocumentSpeechManifest], {
+    mutationFn: (payload) => dataService.getDocumentSpeechManifest(payload),
+  });
+
+export const useCreateDocumentSpeechAudioMutation = (): UseMutationResult<
+  t.TDocumentSpeechAudioArtifact,
+  unknown,
+  t.TDocumentSpeechAudioRequest,
+  void
+> =>
+  useMutation([MutationKeys.createDocumentSpeechAudio], {
+    mutationFn: (payload) => dataService.getDocumentSpeechAudioArtifact(payload),
+  });
+
+export const useCreateDocumentSpeechAudioDownloadMutation = (): UseMutationResult<
+  Blob,
+  unknown,
+  { documentId: string; audioArtifactId: string },
+  void
+> =>
+  useMutation([MutationKeys.createDocumentSpeechAudioDownload], {
+    mutationFn: async ({ documentId, audioArtifactId }) => {
+      const response = await dataService.getDocumentSpeechAudioDownload(documentId, audioArtifactId);
+      return response.data;
+    },
+  });

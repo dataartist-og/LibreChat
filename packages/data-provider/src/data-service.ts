@@ -946,6 +946,32 @@ export function deleteDocumentVisualization(
   return request.delete(endpoints.documentVisualizationById(visualizationId));
 }
 
+export function getDocumentSpeechManifest(
+  payload: t.TDocumentSpeechManifestRequest,
+): Promise<t.TDocumentSpeechManifest> {
+  const { documentId, ...data } = payload;
+  return request.post(endpoints.documentSpeechManifest(documentId), data);
+}
+
+export function getDocumentSpeechAudioArtifact(
+  payload: t.TDocumentSpeechAudioRequest,
+): Promise<t.TDocumentSpeechAudioArtifact> {
+  const { documentId, ...data } = payload;
+  return request.post(endpoints.documentSpeechAudio(documentId), data);
+}
+
+export function getDocumentSpeechAudioDownload(
+  documentId: string,
+  audioArtifactId: string,
+): Promise<AxiosResponse<Blob>> {
+  return request.getResponse(endpoints.documentSpeechAudioById(documentId, audioArtifactId), {
+    responseType: 'blob',
+    headers: {
+      Accept: 'audio/*',
+    },
+  });
+}
+
 export function listClarifications(
   params: t.TClarificationListParams,
 ): Promise<t.TClarification[]> {

@@ -39,6 +39,11 @@ jest.mock('../Viewer', () => ({
   default: () => <div>viewer</div>,
 }));
 
+jest.mock('../Speech', () => ({
+  __esModule: true,
+  default: () => <div>speech-player</div>,
+}));
+
 const workspace: TDocumentWorkspace = {
   document: {
     documentId: 'document-1',

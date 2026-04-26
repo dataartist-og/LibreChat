@@ -1,5 +1,13 @@
 import type { Document, Types } from 'mongoose';
 
+export interface IConversationImportMetadata {
+  source: string;
+  externalConversationId: string;
+  sourceCreatedAt?: Date;
+  sourceUpdatedAt?: Date;
+  importedAt?: Date;
+}
+
 // @ts-ignore
 export interface IConversation extends Document {
   conversationId: string;
@@ -54,6 +62,7 @@ export interface IConversation extends Document {
   fileTokenLimit?: number;
   // Additional fields
   files?: string[];
+  importMetadata?: IConversationImportMetadata;
   expiredAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;

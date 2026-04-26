@@ -30,6 +30,44 @@ export type DocumentBlockType =
   | 'caption'
   | 'page_break';
 
+export type DocumentSpeechSegmentKind =
+  | 'text'
+  | 'heading'
+  | 'caption'
+  | 'table_summary'
+  | 'figure_summary'
+  | 'math_inline_rewrite'
+  | 'math_block_narration'
+  | 'pause_for_visual'
+  | 'resume_after_pause';
+
+export type DocumentSpeechPlaybackDirective = 'continue' | 'pause_for_visual';
+
+export type DocumentSpeechAudioStatus = 'pending' | 'ready' | 'failed' | 'not_required';
+
+export type DocumentSpeechHighlightMode = 'off' | 'excerpt' | 'block';
+
+export interface IDocumentSpeechProfile {
+  provider: string;
+  model: string;
+  voice: string;
+  language?: string | null;
+  format: string;
+  rate?: number | null;
+}
+
+export interface IDocumentSpeechSourceBlock {
+  blockId: string;
+  blockType: DocumentBlockType;
+  blockFingerprint: string;
+}
+
+export interface IDocumentSpeechAlignment {
+  char_start_times_ms: number[];
+  chars_durations_ms: number[];
+  chars: string[];
+}
+
 export interface IDocumentAnchor {
   blockId: string;
   blockType: DocumentBlockType;
@@ -177,6 +215,67 @@ export interface IDocumentVisualization extends Document {
   rootVisualizationId?: string | null;
   integratedAt?: Date | null;
   deletedAt?: Date | null;
+  createdByUserId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  tenantId?: string;
+}
+
+export interface IDocumentSpeechPlan extends Document {
+  planId: string;
+  documentId: string;
+  renderVersionId: string;
+  speechSurfaceFingerprint: string;
+  narrationPolicyVersion: string;
+  segmentIds: string[];
+  sourceBlocksJson: IDocumentSpeechSourceBlock[];
+  createdByUserId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  tenantId?: string;
+}
+
+export interface IDocumentSpeechSegment extends Document {
+  segmentId: string;
+  planId: string;
+  documentId: string;
+  renderVersionId: string;
+  blockId: string;
+  charStart?: number | null;
+  charEnd?: number | null;
+  segmentIndex: number;
+  segmentKind: DocumentSpeechSegmentKind;
+  sourceText: string;
+  sourceContextBefore: string;
+  sourceContextAfter: string;
+  sourceFingerprint: string;
+  spokenText: string;
+  spokenFingerprint: string;
+  playbackDirective: DocumentSpeechPlaybackDirective;
+  focusBlockId?: string | null;
+  resumeToken?: string | null;
+  warnings: string[];
+  narrationModel?: string | null;
+  createdByUserId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  tenantId?: string;
+}
+
+export interface IDocumentSpeechAudioArtifact extends Document {
+  audioArtifactId: string;
+  segmentId: string;
+  documentId: string;
+  renderVersionId: string;
+  speechProfile: IDocumentSpeechProfile;
+  audioCacheKey: string;
+  fileId?: string | null;
+  mimeType: string;
+  durationMs?: number | null;
+  alignmentJson?: IDocumentSpeechAlignment | null;
+  waveformJson?: unknown;
+  status: DocumentSpeechAudioStatus;
+  errorMessage?: string | null;
   createdByUserId: string;
   createdAt?: Date;
   updatedAt?: Date;

@@ -1,7 +1,10 @@
 import crypto from 'node:crypto';
 import type { Model } from 'mongoose';
 import logger from '~/config/winston';
+import { tenantSafeBulkWrite } from '~/utils/tenantBulkWrite';
 import type {
+  DocumentSpeechAudioStatus,
+  DocumentSpeechSegmentKind,
   DocumentClarificationStatus,
   IDocumentAnchor,
   IDocumentClarification,
@@ -9,6 +12,12 @@ import type {
   IDocumentOverlay,
   IDocumentOverlayData,
   IDocumentRenderVersion,
+  IDocumentSpeechAlignment,
+  IDocumentSpeechAudioArtifact,
+  IDocumentSpeechPlan,
+  IDocumentSpeechProfile,
+  IDocumentSpeechSegment,
+  IDocumentSpeechSourceBlock,
   IDocumentVisualization,
   IStudyDocument,
   VisualizationArtifactType,
@@ -152,6 +161,55 @@ type DocumentVisualizationUpdate = Partial<
   >
 >;
 
+type DocumentSpeechPlanUpsert = {
+  planId: string;
+  documentId: string;
+  renderVersionId: string;
+  speechSurfaceFingerprint: string;
+  narrationPolicyVersion: string;
+  segmentIds: string[];
+  sourceBlocksJson: IDocumentSpeechSourceBlock[];
+};
+
+type DocumentSpeechSegmentUpsert = {
+  segmentId: string;
+  planId: string;
+  documentId: string;
+  renderVersionId: string;
+  blockId: string;
+  charStart?: number | null;
+  charEnd?: number | null;
+  segmentIndex: number;
+  segmentKind: DocumentSpeechSegmentKind;
+  sourceText: string;
+  sourceContextBefore: string;
+  sourceContextAfter: string;
+  sourceFingerprint: string;
+  spokenText: string;
+  spokenFingerprint: string;
+  playbackDirective: IDocumentSpeechSegment['playbackDirective'];
+  focusBlockId?: string | null;
+  resumeToken?: string | null;
+  warnings?: string[];
+  narrationModel?: string | null;
+};
+
+type DocumentSpeechAudioArtifactUpsert = {
+  audioArtifactId: string;
+  segmentId: string;
+  documentId: string;
+  renderVersionId: string;
+  speechProfile: IDocumentSpeechProfile;
+  audioCacheKey: string;
+  fileId?: string | null;
+  mimeType: string;
+  durationMs?: number | null;
+  alignmentJson?: IDocumentSpeechAlignment | null;
+  waveformJson?: unknown;
+  status: DocumentSpeechAudioStatus;
+  errorMessage?: string | null;
+};
+
 export interface DocumentMethods {
   createStudyDocument(userId: string, data: StudyDocumentCreate): Promise<IStudyDocument>;
   listStudyDocuments(
@@ -254,6 +312,39 @@ export interface DocumentMethods {
     rootVisualizationId: string,
     excludeVisualizationId?: string,
   ): Promise<IDocumentVisualization | null>;
+  upsertDocumentSpeechPlan(userId: string, data: DocumentSpeechPlanUpsert): Promise<IDocumentSpeechPlan>;
+  getDocumentSpeechPlan(
+    userId: string,
+    params:
+      | { planId: string }
+      | {
+          documentId: string;
+          renderVersionId: string;
+          speechSurfaceFingerprint: string;
+          narrationPolicyVersion: string;
+        },
+  ): Promise<IDocumentSpeechPlan | null>;
+  upsertDocumentSpeechSegments(
+    userId: string,
+    data: DocumentSpeechSegmentUpsert[],
+  ): Promise<IDocumentSpeechSegment[]>;
+  listDocumentSpeechSegments(
+    userId: string,
+    params: { planId?: string; documentId?: string; renderVersionId?: string; blockId?: string },
+  ): Promise<IDocumentSpeechSegment[]>;
+  getDocumentSpeechSegment(userId: string, segmentId: string): Promise<IDocumentSpeechSegment | null>;
+  upsertDocumentSpeechAudioArtifact(
+    userId: string,
+    data: DocumentSpeechAudioArtifactUpsert,
+  ): Promise<IDocumentSpeechAudioArtifact>;
+  listDocumentSpeechAudioArtifacts(
+    userId: string,
+    params: { segmentIds?: string[]; audioCacheKeys?: string[]; documentId?: string },
+  ): Promise<IDocumentSpeechAudioArtifact[]>;
+  getDocumentSpeechAudioArtifact(
+    userId: string,
+    params: { audioArtifactId?: string; audioCacheKey?: string; segmentId?: string },
+  ): Promise<IDocumentSpeechAudioArtifact | null>;
 }
 
 export function createDocumentMethods(mongoose: typeof import('mongoose')): DocumentMethods {
@@ -800,6 +891,228 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
+  async function upsertDocumentSpeechPlan(userId: string, data: DocumentSpeechPlanUpsert) {
+    try {
+      const DocumentSpeechPlan = mongoose.models.DocumentSpeechPlan as Model<IDocumentSpeechPlan>;
+      const plan = await DocumentSpeechPlan.findOneAndUpdate(
+        {
+          planId: data.planId,
+          createdByUserId: userId,
+        },
+        {
+          $set: data,
+          $setOnInsert: {
+            createdByUserId: userId,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+        },
+      ).lean();
+
+      if (!plan) {
+        throw new Error('Error upserting document speech plan');
+      }
+
+      return plan;
+    } catch (error) {
+      logger.error('[upsertDocumentSpeechPlan] Error upserting document speech plan', error);
+      throw error;
+    }
+  }
+
+  async function getDocumentSpeechPlan(
+    userId: string,
+    params:
+      | { planId: string }
+      | {
+          documentId: string;
+          renderVersionId: string;
+          speechSurfaceFingerprint: string;
+          narrationPolicyVersion: string;
+        },
+  ) {
+    try {
+      const DocumentSpeechPlan = mongoose.models.DocumentSpeechPlan as Model<IDocumentSpeechPlan>;
+      return await DocumentSpeechPlan.findOne({
+        createdByUserId: userId,
+        ...params,
+      }).lean();
+    } catch (error) {
+      logger.error('[getDocumentSpeechPlan] Error getting document speech plan', error);
+      throw new Error('Error getting document speech plan');
+    }
+  }
+
+  async function upsertDocumentSpeechSegments(
+    userId: string,
+    data: DocumentSpeechSegmentUpsert[],
+  ) {
+    try {
+      if (data.length === 0) {
+        return [];
+      }
+
+      const DocumentSpeechSegment = mongoose.models
+        .DocumentSpeechSegment as Model<IDocumentSpeechSegment>;
+      await tenantSafeBulkWrite(
+        DocumentSpeechSegment,
+        data.map((segment) => ({
+          updateOne: {
+            filter: {
+              segmentId: segment.segmentId,
+              createdByUserId: userId,
+            },
+            update: {
+              $set: segment,
+              $setOnInsert: {
+                createdByUserId: userId,
+              },
+            },
+            upsert: true,
+          },
+        })),
+      );
+
+      return await DocumentSpeechSegment.find({
+        createdByUserId: userId,
+        segmentId: {
+          $in: data.map((segment) => segment.segmentId),
+        },
+      })
+        .sort({ segmentIndex: 1, createdAt: 1 })
+        .lean();
+    } catch (error) {
+      logger.error('[upsertDocumentSpeechSegments] Error upserting document speech segments', error);
+      throw error;
+    }
+  }
+
+  async function listDocumentSpeechSegments(
+    userId: string,
+    params: { planId?: string; documentId?: string; renderVersionId?: string; blockId?: string },
+  ) {
+    try {
+      const DocumentSpeechSegment = mongoose.models
+        .DocumentSpeechSegment as Model<IDocumentSpeechSegment>;
+      return await DocumentSpeechSegment.find({
+        createdByUserId: userId,
+        ...(params.planId ? { planId: params.planId } : {}),
+        ...(params.documentId ? { documentId: params.documentId } : {}),
+        ...(params.renderVersionId ? { renderVersionId: params.renderVersionId } : {}),
+        ...(params.blockId ? { blockId: params.blockId } : {}),
+      })
+        .sort({ segmentIndex: 1, createdAt: 1 })
+        .lean();
+    } catch (error) {
+      logger.error('[listDocumentSpeechSegments] Error listing document speech segments', error);
+      throw new Error('Error listing document speech segments');
+    }
+  }
+
+  async function getDocumentSpeechSegment(userId: string, segmentId: string) {
+    try {
+      const DocumentSpeechSegment = mongoose.models
+        .DocumentSpeechSegment as Model<IDocumentSpeechSegment>;
+      return await DocumentSpeechSegment.findOne({
+        segmentId,
+        createdByUserId: userId,
+      }).lean();
+    } catch (error) {
+      logger.error('[getDocumentSpeechSegment] Error getting document speech segment', error);
+      throw new Error('Error getting document speech segment');
+    }
+  }
+
+  async function upsertDocumentSpeechAudioArtifact(
+    userId: string,
+    data: DocumentSpeechAudioArtifactUpsert,
+  ) {
+    try {
+      const DocumentSpeechAudioArtifact = mongoose.models
+        .DocumentSpeechAudioArtifact as Model<IDocumentSpeechAudioArtifact>;
+      const { audioArtifactId, ...updateData } = data;
+      const artifact = await DocumentSpeechAudioArtifact.findOneAndUpdate(
+        {
+          audioCacheKey: data.audioCacheKey,
+          createdByUserId: userId,
+        },
+        {
+          $set: updateData,
+          $setOnInsert: {
+            audioArtifactId,
+            createdByUserId: userId,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+        },
+      ).lean();
+
+      if (!artifact) {
+        throw new Error('Error upserting document speech audio artifact');
+      }
+
+      return artifact;
+    } catch (error) {
+      logger.error(
+        '[upsertDocumentSpeechAudioArtifact] Error upserting document speech audio artifact',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async function listDocumentSpeechAudioArtifacts(
+    userId: string,
+    params: { segmentIds?: string[]; audioCacheKeys?: string[]; documentId?: string },
+  ) {
+    try {
+      const DocumentSpeechAudioArtifact = mongoose.models
+        .DocumentSpeechAudioArtifact as Model<IDocumentSpeechAudioArtifact>;
+      return await DocumentSpeechAudioArtifact.find({
+        createdByUserId: userId,
+        ...(params.segmentIds?.length ? { segmentId: { $in: params.segmentIds } } : {}),
+        ...(params.audioCacheKeys?.length ? { audioCacheKey: { $in: params.audioCacheKeys } } : {}),
+        ...(params.documentId ? { documentId: params.documentId } : {}),
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    } catch (error) {
+      logger.error(
+        '[listDocumentSpeechAudioArtifacts] Error listing document speech audio artifacts',
+        error,
+      );
+      throw new Error('Error listing document speech audio artifacts');
+    }
+  }
+
+  async function getDocumentSpeechAudioArtifact(
+    userId: string,
+    params: { audioArtifactId?: string; audioCacheKey?: string; segmentId?: string },
+  ) {
+    try {
+      const DocumentSpeechAudioArtifact = mongoose.models
+        .DocumentSpeechAudioArtifact as Model<IDocumentSpeechAudioArtifact>;
+      return await DocumentSpeechAudioArtifact.findOne({
+        createdByUserId: userId,
+        ...(params.audioArtifactId ? { audioArtifactId: params.audioArtifactId } : {}),
+        ...(params.audioCacheKey ? { audioCacheKey: params.audioCacheKey } : {}),
+        ...(params.segmentId ? { segmentId: params.segmentId } : {}),
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    } catch (error) {
+      logger.error(
+        '[getDocumentSpeechAudioArtifact] Error getting document speech audio artifact',
+        error,
+      );
+      throw new Error('Error getting document speech audio artifact');
+    }
+  }
+
   return {
     createStudyDocument,
     listStudyDocuments,
@@ -827,5 +1140,13 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     updateDocumentVisualization,
     setDocumentVisualizationLatestVersion,
     getLatestDocumentVisualizationVersion,
+    upsertDocumentSpeechPlan,
+    getDocumentSpeechPlan,
+    upsertDocumentSpeechSegments,
+    listDocumentSpeechSegments,
+    getDocumentSpeechSegment,
+    upsertDocumentSpeechAudioArtifact,
+    listDocumentSpeechAudioArtifacts,
+    getDocumentSpeechAudioArtifact,
   };
 }

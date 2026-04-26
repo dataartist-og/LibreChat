@@ -5,7 +5,7 @@ import remarkMath from 'remark-math';
 import ReactMarkdown from 'react-markdown';
 import { useRecoilValue } from 'recoil';
 import supersub from 'remark-supersub';
-import type { TDocumentWorkspace } from 'librechat-data-provider';
+import type { TDocumentSpeechHighlightMode, TDocumentWorkspace } from 'librechat-data-provider';
 import type { PluggableList } from 'unified';
 import { BookOpenText, RotateCcw } from 'lucide-react';
 import {
@@ -21,7 +21,9 @@ import { useCreateStarterDialogMutation } from '~/data-provider/Dialogs';
 import { useReingestStudyDocumentMutation } from '~/data-provider/Documents';
 import { preprocessLaTeX } from '~/utils';
 import store from '~/store';
+import DocumentSpeech from './Speech';
 import DocumentViewer from './Viewer';
+import type { DocumentSpeechActiveState } from './Speech';
 
 const outlineRemarkPlugins: PluggableList = [
   supersub,
@@ -62,8 +64,10 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
   const { showToast } = useToastContext();
   const reingestMutation = useReingestStudyDocumentMutation();
   const createStarterDialogMutation = useCreateStarterDialogMutation();
+  const highlightMode = useRecoilValue<TDocumentSpeechHighlightMode>(store.documentSpeechHighlightMode);
   const [repoUrl, setRepoUrl] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeSpeech, setActiveSpeech] = useState<DocumentSpeechActiveState | null>(null);
 
   const handleCreateStarterDialog = async () => {
     try {
@@ -130,9 +134,17 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
           </div>
         </header>
 
+        <div className="px-4 pt-4 sm:px-6 lg:px-8">
+          <DocumentSpeech workspace={workspace} onActiveSpeechChange={setActiveSpeech} />
+        </div>
+
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <DocumentViewer workspace={workspace} />
+            <DocumentViewer
+              workspace={workspace}
+              activeSpeech={activeSpeech}
+              highlightMode={highlightMode}
+            />
           </div>
 
           <aside className="hidden w-72 flex-shrink-0 border-l border-border-light xl:block">

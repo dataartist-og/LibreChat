@@ -1,9 +1,45 @@
+const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const { logger, getTenantId } = require('@librechat/data-schemas');
 const { EModelEndpoint, Constants, openAISettings } = require('librechat-data-provider');
 const { getEndpointsConfig } = require('~/server/services/Config');
 const { createImportBatchBuilder } = require('./importBatchBuilder');
 const { cloneMessagesWithTimestamps } = require('./fork');
+
+const IMPORT_SOURCES = {
+  chatgpt: 'chatgpt',
+  claude: 'claude',
+  chatbotui: 'chatbotui',
+  librechat: 'librechat',
+};
+
+async function findImportedConversationIds(requestUserId, source, externalConversationIds) {
+  if (externalConversationIds.length === 0) {
+    return new Set();
+  }
+
+  const Conversation = mongoose.models.Conversation;
+  if (Conversation?.find == null) {
+    return new Set();
+  }
+
+  const existingConversations = await Conversation.find(
+    {
+      user: requestUserId,
+      'importMetadata.source': source,
+      'importMetadata.externalConversationId': { $in: externalConversationIds },
+    },
+    {
+      'importMetadata.externalConversationId': 1,
+    },
+  ).lean();
+
+  return new Set(
+    existingConversations
+      .map((conversation) => conversation.importMetadata?.externalConversationId)
+      .filter(Boolean),
+  );
+}
 
 /**
  * Returns the appropriate importer function based on the provided JSON data.
@@ -72,6 +108,12 @@ async function importChatBotUiConvo(
     }
     await importBatchBuilder.saveBatch();
     logger.info(`user: ${requestUserId} | ChatbotUI conversation imported`);
+    return {
+      importedCount: jsonData.history.length,
+      skippedCount: 0,
+      totalCount: jsonData.history.length,
+      source: IMPORT_SOURCES.chatbotui,
+    };
   } catch (error) {
     logger.error(`user: ${requestUserId} | Error creating conversation from ChatbotUI file`, error);
   }
@@ -177,6 +219,12 @@ async function importClaudeConvo(
 
     await importBatchBuilder.saveBatch();
     logger.info(`user: ${requestUserId} | Claude conversation imported`);
+    return {
+      importedCount: jsonData.length,
+      skippedCount: 0,
+      totalCount: jsonData.length,
+      source: IMPORT_SOURCES.claude,
+    };
   } catch (error) {
     logger.error(`user: ${requestUserId} | Error creating conversation from Claude file`, error);
   }
@@ -274,6 +322,12 @@ async function importLibreChatConvo(
     importBatchBuilder.finishConversation(jsonData.title, firstMessageDate ?? new Date(), options);
     await importBatchBuilder.saveBatch();
     logger.debug(`user: ${requestUserId} | Conversation "${jsonData.title}" imported`);
+    return {
+      importedCount: 1,
+      skippedCount: 0,
+      totalCount: 1,
+      source: IMPORT_SOURCES.librechat,
+    };
   } catch (error) {
     logger.error(`user: ${requestUserId} | Error creating conversation from LibreChat file`, error);
   }
@@ -295,10 +349,46 @@ async function importChatGptConvo(
 ) {
   try {
     const importBatchBuilder = builderFactory(requestUserId);
+    const externalConversationIds = [
+      ...new Set(
+        jsonData
+          .map((conv) => conv.id)
+          .filter(
+            (conversationId) => typeof conversationId === 'string' && conversationId.length > 0,
+          ),
+      ),
+    ];
+    const existingConversationIds = await findImportedConversationIds(
+      requestUserId,
+      IMPORT_SOURCES.chatgpt,
+      externalConversationIds,
+    );
+    let importedCount = 0;
+    let skippedCount = 0;
+
     for (const conv of jsonData) {
+      const sourceConversationId = typeof conv.id === 'string' ? conv.id : null;
+      if (sourceConversationId != null && existingConversationIds.has(sourceConversationId)) {
+        skippedCount++;
+        continue;
+      }
+      if (sourceConversationId != null) {
+        existingConversationIds.add(sourceConversationId);
+      }
+
       processConversation(conv, importBatchBuilder, requestUserId);
+      importedCount++;
     }
-    await importBatchBuilder.saveBatch();
+    if (importedCount > 0) {
+      await importBatchBuilder.saveBatch();
+    }
+
+    return {
+      importedCount,
+      skippedCount,
+      totalCount: jsonData.length,
+      source: IMPORT_SOURCES.chatgpt,
+    };
   } catch (error) {
     logger.error(`user: ${requestUserId} | Error creating conversation from imported file`, error);
   }
@@ -487,7 +577,24 @@ function processConversation(conv, importBatchBuilder, requestUserId) {
     importBatchBuilder.saveMessage(message);
   }
 
-  importBatchBuilder.finishConversation(conv.title, new Date(conv.create_time * 1000));
+  const sourceCreatedAt =
+    typeof conv.create_time === 'number' ? new Date(conv.create_time * 1000) : undefined;
+  const sourceUpdatedAt =
+    typeof conv.update_time === 'number' ? new Date(conv.update_time * 1000) : sourceCreatedAt;
+
+  importBatchBuilder.finishConversation(conv.title, sourceCreatedAt, {
+    updatedAt: sourceUpdatedAt,
+    importMetadata:
+      typeof conv.id === 'string'
+        ? {
+            source: IMPORT_SOURCES.chatgpt,
+            externalConversationId: conv.id,
+            sourceCreatedAt,
+            sourceUpdatedAt,
+            importedAt: new Date(),
+          }
+        : undefined,
+  });
 }
 
 /**

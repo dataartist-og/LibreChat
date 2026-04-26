@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const { EModelEndpoint, Constants, openAISettings } = require('librechat-data-provider');
 const { getImporter, processAssistantMessage } = require('./importers');
 const { ImportBatchBuilder } = require('./importBatchBuilder');
@@ -17,10 +18,12 @@ jest.mock('~/server/services/Config', () => ({
 jest.mock('~/models', () => ({
   bulkSaveConvos: jest.fn(),
   bulkSaveMessages: jest.fn(),
+  bulkIncrementTagCounts: jest.fn(),
 }));
 
 afterEach(() => {
   jest.clearAllMocks();
+  delete mongoose.models.Conversation;
 });
 
 describe('importChatGptConvo', () => {
@@ -45,6 +48,53 @@ describe('importChatGptConvo', () => {
     expect(importBatchBuilder.saveMessage).toHaveBeenCalledTimes(expectedNumberOfMessages);
     expect(importBatchBuilder.finishConversation).toHaveBeenCalledTimes(jsonData.length);
     expect(importBatchBuilder.saveBatch).toHaveBeenCalled();
+  });
+
+  it('should skip ChatGPT conversations that were already imported', async () => {
+    const jsonData = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '__data__', 'chatgpt-export.json'), 'utf8'),
+    ).slice(0, 2);
+    const requestUserId = 'user-123';
+    const existingConversationId = jsonData[0].id;
+    const importBatchBuilder = new ImportBatchBuilder(requestUserId);
+
+    mongoose.models.Conversation = {
+      find: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([
+          {
+            importMetadata: {
+              externalConversationId: existingConversationId,
+            },
+          },
+        ]),
+      }),
+    };
+
+    jest.spyOn(importBatchBuilder, 'saveMessage');
+    jest.spyOn(importBatchBuilder, 'finishConversation');
+    jest.spyOn(importBatchBuilder, 'saveBatch');
+
+    const importer = getImporter(jsonData);
+    const result = await importer(jsonData, requestUserId, () => importBatchBuilder);
+
+    expect(mongoose.models.Conversation.find).toHaveBeenCalledWith(
+      {
+        user: requestUserId,
+        'importMetadata.source': 'chatgpt',
+        'importMetadata.externalConversationId': { $in: [jsonData[0].id, jsonData[1].id] },
+      },
+      {
+        'importMetadata.externalConversationId': 1,
+      },
+    );
+    expect(result).toEqual({
+      importedCount: 1,
+      skippedCount: 1,
+      totalCount: 2,
+      source: 'chatgpt',
+    });
+    expect(importBatchBuilder.finishConversation).toHaveBeenCalledTimes(1);
+    expect(importBatchBuilder.saveBatch).toHaveBeenCalledTimes(1);
   });
 
   it('should maintain correct message hierarchy (tree parent/children relationship)', async () => {

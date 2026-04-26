@@ -1,9 +1,15 @@
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
 const express = require('express');
 const request = require('supertest');
 
 const mockCreateStudyDocumentFromFile = jest.fn();
 const mockGetStudyDocumentWorkspace = jest.fn();
 const mockGetDocumentVisualizationRenderPayload = jest.fn();
+const mockGetDocumentSpeechManifest = jest.fn();
+const mockGetDocumentSpeechAudioArtifact = jest.fn();
+const mockGetDocumentSpeechAudioPayload = jest.fn();
 
 jest.mock('@librechat/api', () => ({
   listStudyDocuments: jest.fn(),
@@ -18,16 +24,26 @@ jest.mock('@librechat/api', () => ({
   deleteDocumentVisualization: jest.fn(),
   getDocumentVisualizationRenderPayload: (...args) =>
     mockGetDocumentVisualizationRenderPayload(...args),
+  getOrCreateDocumentSpeechManifest: (...args) => mockGetDocumentSpeechManifest(...args),
+  getOrCreateDocumentSpeechAudioArtifact: (...args) => mockGetDocumentSpeechAudioArtifact(...args),
+  getDocumentSpeechAudioPayload: (...args) => mockGetDocumentSpeechAudioPayload(...args),
 }));
 
 jest.mock('~/server/middleware/requireJwtAuth', () => (req, _res, next) => {
   req.user = { id: 'user-1' };
-  req.config = {};
   next();
 });
 
+jest.mock('~/server/middleware', () => ({
+  configMiddleware: (req, _res, next) => {
+    req.config = {};
+    next();
+  },
+}));
+
 jest.mock('~/models', () => ({
   findFileById: jest.fn(),
+  createFile: jest.fn(),
   createStudyDocument: jest.fn(),
   listStudyDocuments: jest.fn(),
   getStudyDocument: jest.fn(),
@@ -50,6 +66,14 @@ jest.mock('~/models', () => ({
   listDocumentVisualizations: jest.fn(),
   getDocumentVisualization: jest.fn(),
   updateDocumentVisualization: jest.fn(),
+  upsertDocumentSpeechPlan: jest.fn(),
+  getDocumentSpeechPlan: jest.fn(),
+  upsertDocumentSpeechSegments: jest.fn(),
+  listDocumentSpeechSegments: jest.fn(),
+  getDocumentSpeechSegment: jest.fn(),
+  upsertDocumentSpeechAudioArtifact: jest.fn(),
+  listDocumentSpeechAudioArtifacts: jest.fn(),
+  getDocumentSpeechAudioArtifact: jest.fn(),
 }));
 
 const documentsRoute = require('./documents');
@@ -110,5 +134,56 @@ describe('documents route', () => {
     expect(response.status).toBe(201);
     expect(response.body.document.documentId).toBe('document-1');
     expect(mockCreateStudyDocumentFromFile).toHaveBeenCalled();
+  });
+
+  it('returns a document speech manifest', async () => {
+    mockGetDocumentSpeechManifest.mockResolvedValue({
+      planId: 'plan-1',
+      documentId: 'document-1',
+      renderVersionId: 'render-1',
+      speechSurfaceFingerprint: 'fingerprint-1',
+      narrationPolicyVersion: 'document_speech_v1',
+      resolvedProfile: {
+        provider: 'openai',
+        model: 'gpt-4o-mini-tts',
+        voice: 'alloy',
+        language: null,
+        format: 'audio/mpeg',
+        rate: null,
+      },
+      segments: [],
+      startSegmentId: null,
+      nextPrefetchSegmentIds: [],
+    });
+
+    const response = await request(app).post('/api/documents/document-1/speech/manifest').send({
+      renderVersionId: 'render-1',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.planId).toBe('plan-1');
+    expect(mockGetDocumentSpeechManifest).toHaveBeenCalled();
+  });
+
+  it('streams a persisted document speech audio file', async () => {
+    const tempFilePath = path.join(os.tmpdir(), `document-audio-${Date.now()}.mp3`);
+    await fs.writeFile(tempFilePath, 'audio');
+
+    mockGetDocumentSpeechAudioPayload.mockResolvedValue({
+      filePath: tempFilePath,
+      mimeType: 'audio/mpeg',
+      filename: 'document-audio.mp3',
+    });
+
+    const response = await request(app).get(
+      '/api/documents/document-1/speech/audio/audio-artifact-1',
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('audio/mpeg');
+    expect(response.headers['cache-control']).toContain('private');
+    expect(mockGetDocumentSpeechAudioPayload).toHaveBeenCalled();
+
+    await fs.unlink(tempFilePath);
   });
 });

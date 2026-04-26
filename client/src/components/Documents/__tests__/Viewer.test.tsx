@@ -380,4 +380,20 @@ describe('DocumentViewer', () => {
     );
     expect(screen.getByText('*Figure 1: Flow network diagram.*')).toBeInTheDocument();
   });
+
+  it('shows the active spoken excerpt when excerpt highlighting is enabled', () => {
+    render(
+      <DocumentViewer
+        workspace={baseWorkspace}
+        activeSpeech={{
+          blockId: 'block-1',
+          excerpt: 'Entropy increases in isolated systems.',
+          segmentKind: 'text',
+        }}
+        highlightMode="excerpt"
+      />,
+    );
+
+    expect(screen.getAllByText('Entropy increases in isolated systems.').length).toBeGreaterThan(1);
+  });
 });

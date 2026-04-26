@@ -73,13 +73,15 @@ class ImportBatchBuilder {
    * @returns {{ conversation: TConversation, messages: TMessage[] }} The resulting conversation and messages.
    */
   finishConversation(title, createdAt, originalConvo = {}) {
+    const conversationCreatedAt = createdAt ?? originalConvo.createdAt ?? new Date();
+    const conversationUpdatedAt = originalConvo.updatedAt ?? conversationCreatedAt;
     const convo = {
       ...originalConvo,
       user: this.requestUserId,
       conversationId: this.conversationId,
       title: title || 'Imported Chat',
-      createdAt: createdAt,
-      updatedAt: createdAt,
+      createdAt: conversationCreatedAt,
+      updatedAt: conversationUpdatedAt,
       overrideTimestamp: true,
       endpoint: this.endpoint,
       model: originalConvo.model ?? openAISettings.model.default,

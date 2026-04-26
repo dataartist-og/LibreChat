@@ -24,6 +24,9 @@ export {
   documentOverlaySchema,
   documentClarificationSchema,
   documentVisualizationSchema,
+  documentSpeechPlanSchema,
+  documentSpeechSegmentSchema,
+  documentSpeechAudioArtifactSchema,
 } from './document';
 export {
   studyDialogSchema,

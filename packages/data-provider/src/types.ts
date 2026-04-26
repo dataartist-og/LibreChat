@@ -3,6 +3,12 @@ import type {
   TConversationTag,
   TDocumentAnchor,
   TDocumentClarification,
+  TDocumentSpeechAudioArtifact,
+  TDocumentSpeechHighlightMode,
+  TDocumentSpeechManifest,
+  TDocumentSpeechProfile,
+  TDocumentSpeechProfileInput,
+  TDocumentSpeechSegment,
   TDocumentVisualization,
   TDocumentWorkspace,
   TDialogCell,
@@ -452,6 +458,19 @@ export type TDocumentVisualizationIntegrateRequest = {
   displayMode?: 'integrated' | 'nested';
 };
 
+export type TDocumentSpeechManifestRequest = {
+  documentId: string;
+  renderVersionId: string;
+  startBlockId?: string | null;
+  profile?: TDocumentSpeechProfileInput;
+};
+
+export type TDocumentSpeechAudioRequest = {
+  documentId: string;
+  segmentId: string;
+  profile?: TDocumentSpeechProfileInput;
+};
+
 export type TClarificationListParams = {
   conversationId: string;
   parentMessageId?: string;
@@ -597,6 +616,12 @@ export type {
   TDialogWorkspace,
   TDocumentWorkspace,
   TDocumentClarification,
+  TDocumentSpeechAudioArtifact,
+  TDocumentSpeechHighlightMode,
+  TDocumentSpeechManifest,
+  TDocumentSpeechProfile,
+  TDocumentSpeechProfileInput,
+  TDocumentSpeechSegment,
   TDocumentVisualization,
 };
 
@@ -843,6 +868,10 @@ export type TImportResponse = {
    * The message associated with the response.
    */
   message: string;
+  importedCount?: number;
+  skippedCount?: number;
+  totalCount?: number;
+  source?: string;
 };
 
 /** Prompts */

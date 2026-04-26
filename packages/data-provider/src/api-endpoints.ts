@@ -217,6 +217,14 @@ export const documentVisualizationIntegrate = (visualizationId: string) =>
 export const documentVisualizationRender = (visualizationId: string) =>
   `${documentVisualizationById(visualizationId)}/render`;
 
+export const documentSpeechManifest = (documentId: string) =>
+  `${documentById(documentId)}/speech/manifest`;
+
+export const documentSpeechAudio = (documentId: string) => `${documentById(documentId)}/speech/audio`;
+
+export const documentSpeechAudioById = (documentId: string, audioArtifactId: string) =>
+  `${documentSpeechAudio(documentId)}/${encodeURIComponent(audioArtifactId)}`;
+
 export const conversationClarifications = (
   conversationId: string,
   params?: { parentMessageId?: string; includeArchived?: boolean },

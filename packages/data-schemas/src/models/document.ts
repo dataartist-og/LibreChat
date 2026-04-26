@@ -2,6 +2,9 @@ import {
   documentClarificationSchema,
   documentOverlaySchema,
   documentRenderVersionSchema,
+  documentSpeechAudioArtifactSchema,
+  documentSpeechPlanSchema,
+  documentSpeechSegmentSchema,
   documentVisualizationSchema,
   studyDocumentSchema,
 } from '~/schema/document';
@@ -9,6 +12,9 @@ import type {
   IDocumentClarification,
   IDocumentOverlay,
   IDocumentRenderVersion,
+  IDocumentSpeechAudioArtifact,
+  IDocumentSpeechPlan,
+  IDocumentSpeechSegment,
   IDocumentVisualization,
   IStudyDocument,
 } from '~/types';
@@ -51,5 +57,32 @@ export function createDocumentVisualizationModel(mongoose: typeof import('mongoo
   return (
     mongoose.models.DocumentVisualization ||
     mongoose.model<IDocumentVisualization>('DocumentVisualization', documentVisualizationSchema)
+  );
+}
+
+export function createDocumentSpeechPlanModel(mongoose: typeof import('mongoose')) {
+  applyTenantIsolation(documentSpeechPlanSchema);
+  return (
+    mongoose.models.DocumentSpeechPlan ||
+    mongoose.model<IDocumentSpeechPlan>('DocumentSpeechPlan', documentSpeechPlanSchema)
+  );
+}
+
+export function createDocumentSpeechSegmentModel(mongoose: typeof import('mongoose')) {
+  applyTenantIsolation(documentSpeechSegmentSchema);
+  return (
+    mongoose.models.DocumentSpeechSegment ||
+    mongoose.model<IDocumentSpeechSegment>('DocumentSpeechSegment', documentSpeechSegmentSchema)
+  );
+}
+
+export function createDocumentSpeechAudioArtifactModel(mongoose: typeof import('mongoose')) {
+  applyTenantIsolation(documentSpeechAudioArtifactSchema);
+  return (
+    mongoose.models.DocumentSpeechAudioArtifact ||
+    mongoose.model<IDocumentSpeechAudioArtifact>(
+      'DocumentSpeechAudioArtifact',
+      documentSpeechAudioArtifactSchema,
+    )
   );
 }

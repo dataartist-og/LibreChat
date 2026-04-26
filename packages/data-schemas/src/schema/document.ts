@@ -3,6 +3,9 @@ import type {
   IDocumentClarification,
   IDocumentOverlay,
   IDocumentRenderVersion,
+  IDocumentSpeechAudioArtifact,
+  IDocumentSpeechPlan,
+  IDocumentSpeechSegment,
   IDocumentVisualization,
   IStudyDocument,
 } from '~/types';
@@ -60,6 +63,90 @@ const documentAnchorSchema = new Schema(
     pageEnd: {
       type: Number,
       default: null,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const documentSpeechProfileSchema = new Schema(
+  {
+    provider: {
+      type: String,
+      required: true,
+    },
+    model: {
+      type: String,
+      required: true,
+    },
+    voice: {
+      type: String,
+      required: true,
+    },
+    language: {
+      type: String,
+      default: null,
+    },
+    format: {
+      type: String,
+      required: true,
+    },
+    rate: {
+      type: Number,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const documentSpeechSourceBlockSchema = new Schema(
+  {
+    blockId: {
+      type: String,
+      required: true,
+    },
+    blockType: {
+      type: String,
+      required: true,
+      enum: [
+        'heading',
+        'paragraph',
+        'list',
+        'table',
+        'blockquote',
+        'code',
+        'math_block',
+        'figure',
+        'caption',
+        'page_break',
+      ],
+    },
+    blockFingerprint: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const documentSpeechAlignmentSchema = new Schema(
+  {
+    char_start_times_ms: {
+      type: [Number],
+      default: [],
+    },
+    chars_durations_ms: {
+      type: [Number],
+      default: [],
+    },
+    chars: {
+      type: [String],
+      default: [],
     },
   },
   {
@@ -462,3 +549,271 @@ documentVisualizationSchema.index({
   deletedAt: 1,
   versionNumber: -1,
 });
+
+export const documentSpeechPlanSchema: Schema<IDocumentSpeechPlan> = new Schema(
+  {
+    planId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    documentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    renderVersionId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    speechSurfaceFingerprint: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    narrationPolicyVersion: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    segmentIds: {
+      type: [String],
+      default: [],
+    },
+    sourceBlocksJson: {
+      type: [documentSpeechSourceBlockSchema],
+      default: [],
+    },
+    createdByUserId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    tenantId: {
+      type: String,
+      index: true,
+    },
+  },
+  { timestamps: true },
+);
+
+documentSpeechPlanSchema.index({ createdByUserId: 1, planId: 1, tenantId: 1 }, { unique: true });
+documentSpeechPlanSchema.index(
+  {
+    documentId: 1,
+    renderVersionId: 1,
+    speechSurfaceFingerprint: 1,
+    narrationPolicyVersion: 1,
+    createdByUserId: 1,
+  },
+  { unique: true },
+);
+
+export const documentSpeechSegmentSchema: Schema<IDocumentSpeechSegment> = new Schema(
+  {
+    segmentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    planId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    documentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    renderVersionId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    blockId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    charStart: {
+      type: Number,
+      default: null,
+    },
+    charEnd: {
+      type: Number,
+      default: null,
+    },
+    segmentIndex: {
+      type: Number,
+      required: true,
+      index: true,
+    },
+    segmentKind: {
+      type: String,
+      required: true,
+      enum: [
+        'text',
+        'heading',
+        'caption',
+        'table_summary',
+        'figure_summary',
+        'math_inline_rewrite',
+        'math_block_narration',
+        'pause_for_visual',
+        'resume_after_pause',
+      ],
+    },
+    sourceText: {
+      type: String,
+      required: true,
+    },
+    sourceContextBefore: {
+      type: String,
+      default: '',
+    },
+    sourceContextAfter: {
+      type: String,
+      default: '',
+    },
+    sourceFingerprint: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    spokenText: {
+      type: String,
+      default: '',
+    },
+    spokenFingerprint: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    playbackDirective: {
+      type: String,
+      required: true,
+      enum: ['continue', 'pause_for_visual'],
+      default: 'continue',
+    },
+    focusBlockId: {
+      type: String,
+      default: null,
+    },
+    resumeToken: {
+      type: String,
+      default: null,
+    },
+    warnings: {
+      type: [String],
+      default: [],
+    },
+    narrationModel: {
+      type: String,
+      default: null,
+    },
+    createdByUserId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    tenantId: {
+      type: String,
+      index: true,
+    },
+  },
+  { timestamps: true },
+);
+
+documentSpeechSegmentSchema.index(
+  { createdByUserId: 1, segmentId: 1, tenantId: 1 },
+  { unique: true },
+);
+documentSpeechSegmentSchema.index({ planId: 1, segmentIndex: 1 });
+documentSpeechSegmentSchema.index({ documentId: 1, renderVersionId: 1, blockId: 1 });
+
+export const documentSpeechAudioArtifactSchema: Schema<IDocumentSpeechAudioArtifact> = new Schema(
+  {
+    audioArtifactId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    segmentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    documentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    renderVersionId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    speechProfile: {
+      type: documentSpeechProfileSchema,
+      required: true,
+    },
+    audioCacheKey: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    fileId: {
+      type: String,
+      default: null,
+    },
+    mimeType: {
+      type: String,
+      required: true,
+      default: 'audio/mpeg',
+    },
+    durationMs: {
+      type: Number,
+      default: null,
+    },
+    alignmentJson: {
+      type: documentSpeechAlignmentSchema,
+      default: null,
+    },
+    waveformJson: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    status: {
+      type: String,
+      required: true,
+      enum: ['pending', 'ready', 'failed', 'not_required'],
+      default: 'pending',
+    },
+    errorMessage: {
+      type: String,
+      default: null,
+    },
+    createdByUserId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    tenantId: {
+      type: String,
+      index: true,
+    },
+  },
+  { timestamps: true },
+);
+
+documentSpeechAudioArtifactSchema.index(
+  { createdByUserId: 1, audioArtifactId: 1, tenantId: 1 },
+  { unique: true },
+);
+documentSpeechAudioArtifactSchema.index(
+  { createdByUserId: 1, audioCacheKey: 1, tenantId: 1 },
+  { unique: true },
+);
+documentSpeechAudioArtifactSchema.index({ segmentId: 1, status: 1, createdAt: -1 });

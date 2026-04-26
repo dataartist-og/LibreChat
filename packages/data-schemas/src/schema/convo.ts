@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 import { conversationPreset } from './defaults';
-import { IConversation } from '~/types';
+import type { IConversation } from '~/types';
 
 const convoSchema: Schema<IConversation> = new Schema(
   {
@@ -38,6 +38,27 @@ const convoSchema: Schema<IConversation> = new Schema(
     files: {
       type: [String],
     },
+    importMetadata: {
+      type: {
+        source: {
+          type: String,
+        },
+        externalConversationId: {
+          type: String,
+        },
+        sourceCreatedAt: {
+          type: Date,
+        },
+        sourceUpdatedAt: {
+          type: Date,
+        },
+        importedAt: {
+          type: Date,
+        },
+      },
+      _id: false,
+      default: undefined,
+    },
     expiredAt: {
       type: Date,
     },
@@ -53,6 +74,12 @@ convoSchema.index({ expiredAt: 1 }, { expireAfterSeconds: 0 });
 convoSchema.index({ createdAt: 1, updatedAt: 1 });
 convoSchema.index({ conversationId: 1, user: 1, tenantId: 1 }, { unique: true });
 convoSchema.index({ user: 1, projectId: 1, updatedAt: -1 });
+convoSchema.index({
+  user: 1,
+  'importMetadata.source': 1,
+  'importMetadata.externalConversationId': 1,
+  tenantId: 1,
+});
 
 // index for MeiliSearch sync operations
 convoSchema.index({ _meiliIndex: 1, expiredAt: 1 });
