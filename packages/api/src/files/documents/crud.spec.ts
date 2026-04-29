@@ -195,11 +195,11 @@ describe('Document Parser', () => {
       originalname: 'oversized.docx',
       path: path.join(__dirname, 'sample.docx'),
       mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      size: 16 * 1024 * 1024,
+      size: 31 * 1024 * 1024,
     } as Express.Multer.File;
 
     await expect(parseDocument({ file })).rejects.toThrow(
-      /exceeds the 15MB document parser limit \(16MB\)/,
+      /exceeds the 30MB document parser limit \(31MB\)/,
     );
   });
 
@@ -208,7 +208,7 @@ describe('Document Parser', () => {
       originalname: 'sample.docx',
       path: path.join(__dirname, 'sample.docx'),
       mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      size: 15 * 1024 * 1024,
+      size: 30 * 1024 * 1024,
     } as Express.Multer.File;
 
     await expect(parseDocument({ file })).resolves.toBeDefined();

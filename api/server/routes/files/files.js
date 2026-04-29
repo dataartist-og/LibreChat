@@ -39,6 +39,30 @@ const { getLogStores } = require('~/cache');
 const { Readable } = require('stream');
 const db = require('~/models');
 
+function serializeForLog(value) {
+  const seen = new WeakSet();
+  return JSON.stringify(
+    value,
+    (key, currentValue) => {
+      if (currentValue instanceof Error) {
+        return {
+          name: currentValue.name,
+          message: currentValue.message,
+          stack: currentValue.stack,
+        };
+      }
+      if (typeof currentValue === 'object' && currentValue !== null) {
+        if (seen.has(currentValue)) {
+          return '[Circular]';
+        }
+        seen.add(currentValue);
+      }
+      return currentValue;
+    },
+    2,
+  );
+}
+
 const router = express.Router();
 const openAIFileClientDeps = {
   getUserKey: db.getUserKey,
@@ -432,8 +456,35 @@ router.post('/', async (req, res) => {
 
     return await processAgentFileUpload({ req, res, metadata });
   } catch (error) {
-    const message = resolveUploadErrorMessage(error);
-    logger.error('[/files] Error processing file:', error);
+    const defaultUploadError = 'Error processing file';
+    const message = resolveUploadErrorMessage(error, defaultUploadError);
+    const statusCode = message === defaultUploadError ? 500 : 400;
+
+    const uploadedPath = req.file?.path;
+    let diskFileSize;
+    if (uploadedPath) {
+      try {
+        const stats = await fs.stat(uploadedPath);
+        diskFileSize = stats.size;
+      } catch (statError) {
+        logger.warn('[/files] Could not stat uploaded temp file:', statError);
+      }
+    }
+
+    const errorDetails = {
+      message,
+      endpoint: metadata?.endpoint,
+      endpointType: metadata?.endpointType,
+      tool_resource: metadata?.tool_resource,
+      mimetype: req.file?.mimetype,
+      multerSize: req.file?.size,
+      diskFileSize,
+      uploadedPath,
+      stack: error instanceof Error ? error.stack : undefined,
+      rawError: error,
+    };
+
+    logger.error(`[/files] Error processing file details: ${serializeForLog(errorDetails)}`);
 
     try {
       await fs.unlink(req.file.path);
@@ -441,7 +492,7 @@ router.post('/', async (req, res) => {
     } catch (error) {
       logger.error('[/files] Error deleting file:', error);
     }
-    res.status(500).json({ message });
+    res.status(statusCode).json({ message });
   } finally {
     if (cleanup) {
       try {

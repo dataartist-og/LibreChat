@@ -94,6 +94,12 @@ describe('resolveUploadErrorMessage', () => {
     expect(resolveUploadErrorMessage({ message: msg })).toBe(msg);
   });
 
+  test('surfaces offset out-of-range parser errors', () => {
+    const msg =
+      'The value of "offset" is out of range. It must be >= 0 && <= 17825792. Received 17825794';
+    expect(resolveUploadErrorMessage({ message: msg })).toBe(msg);
+  });
+
   test('accepts a custom default message', () => {
     expect(resolveUploadErrorMessage(null, 'Custom default')).toBe('Custom default');
   });

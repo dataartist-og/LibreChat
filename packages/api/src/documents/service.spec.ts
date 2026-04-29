@@ -156,6 +156,54 @@ describe('document service', () => {
     expect(await methods.listStudyDocuments(userId, { projectId })).toHaveLength(1);
   });
 
+  it('creates a document workspace from a native file using linked fallback extracted text', async () => {
+    const tempFileId = new mongoose.Types.ObjectId().toString();
+
+    const nativeFile = await methods.createFile(
+      {
+        file_id: new mongoose.Types.ObjectId().toString(),
+        temp_file_id: tempFileId,
+        user: new mongoose.Types.ObjectId(userId),
+        projectId,
+        filename: 'native-only.pdf',
+        filepath: 'https://api.openai.com/v1/files/file-test',
+        type: 'application/pdf',
+        source: 'openai',
+        bytes: 1024,
+      },
+      true,
+    );
+
+    if (!nativeFile) {
+      throw new Error('Failed to create native file fixture');
+    }
+
+    await methods.createFile(
+      {
+        file_id: new mongoose.Types.ObjectId().toString(),
+        temp_file_id: tempFileId,
+        user: new mongoose.Types.ObjectId(userId),
+        projectId,
+        filename: 'native-only.pdf',
+        filepath: 'document_parser',
+        type: 'application/pdf',
+        source: 'text',
+        text: '# Native fallback\n\nThis text was extracted before native upload fallback.',
+        bytes: 128,
+      },
+      true,
+    );
+
+    const workspace = await createStudyDocumentFromFile(methods, userId, {
+      sourceFileId: nativeFile.file_id,
+      projectId,
+    });
+
+    expect(workspace.document.sourceFileId).toBe(nativeFile.file_id);
+    expect(workspace.document.ingestionStatus).toBe('ready');
+    expect(workspace.renderVersion.documentIrJson.blocks.length).toBeGreaterThan(0);
+  });
+
   it('integrates document clarifications and syncs the active overlay', async () => {
     const workspace = await createWorkspace();
     const paragraphBlock = workspace.renderVersion.documentIrJson.blocks.find(

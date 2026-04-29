@@ -31,7 +31,6 @@ services:
     container_name: chat-mongodb
     image: mongo:8.0.20
     restart: always
-    user: "${UID}:${GID}"
     volumes:
       - ./data-node:/data/db
     command: mongod --noauth
@@ -39,7 +38,6 @@ services:
     container_name: chat-meilisearch
     image: getmeili/meilisearch:v1.35.1
     restart: always
-    user: "${UID}:${GID}"
     environment:
       - MEILI_HOST=http://meilisearch:7700
       - MEILI_NO_ANALYTICS=true

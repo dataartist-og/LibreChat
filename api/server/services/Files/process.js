@@ -682,6 +682,55 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
       throw new Error('OCR capability is not enabled for Agents');
     }
 
+    const shouldFallbackToNativeOpenAI =
+      messageAttachment === true &&
+      isOpenAINativeUploadRequest({
+        endpoint: metadata.endpoint,
+        endpointType: metadata.endpointType,
+        tool_resource: null,
+        mimetype: file.mimetype,
+      });
+
+    const saveFallbackTextSnapshot = async (text, bytes) => {
+      if (!shouldFallbackToNativeOpenAI || !metadata.temp_file_id || !text?.trim()) {
+        return;
+      }
+
+      const existing = await db.findFileById(metadata.temp_file_id, { user: req.user.id });
+      if (existing?.text?.trim()) {
+        return;
+      }
+
+      const maxSnapshotBytes = 12 * megabyte;
+      const snapshotText = Buffer.from(text, 'utf8').subarray(0, maxSnapshotBytes).toString('utf8');
+      const snapshotBytes = Buffer.byteLength(snapshotText, 'utf8');
+
+      if (!snapshotText.trim()) {
+        return;
+      }
+
+      await db.createFile(
+        {
+          user: req.user.id,
+          projectId: metadata.projectId,
+          file_id: v4(),
+          temp_file_id: metadata.temp_file_id,
+          bytes: Math.min(bytes ?? snapshotBytes, snapshotBytes),
+          filepath: file.path,
+          filename: file.originalname,
+          source: FileSources.text,
+          type: file.mimetype,
+          text: snapshotText,
+          context: FileContext.message_attachment,
+          metadata: {
+            fallbackExtractedText: true,
+            truncated: snapshotBytes >= maxSnapshotBytes,
+          },
+        },
+        true,
+      );
+    };
+
     if (shouldUseOCR) {
       const ocrResult = await resolveDocumentText();
       if (ocrResult) {
@@ -695,8 +744,38 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
             },
           };
         }
-        return await createTextFile({ text, bytes, filepath: ocrFileURL });
+
+        try {
+          return await createTextFile({ text, bytes, filepath: ocrFileURL });
+        } catch (error) {
+          const errorMessage = typeof error?.message === 'string' ? error.message : '';
+          const extractedTextTooLarge =
+            errorMessage.includes('exceeds the 15MB storage limit') ||
+            errorMessage.includes('value of "offset" is out of range');
+
+          if (shouldFallbackToNativeOpenAI && extractedTextTooLarge) {
+            await saveFallbackTextSnapshot(text, bytes);
+            logger.warn(
+              `[processAgentFileUpload] Falling back to native OpenAI upload for "${file.originalname}" because extracted text exceeds local storage limits.`,
+            );
+            const nativeMetadata = { ...metadata };
+            delete nativeMetadata.tool_resource;
+            return await processFileUpload({ req, res, metadata: nativeMetadata });
+          }
+
+          throw error;
+        }
       }
+
+      if (shouldFallbackToNativeOpenAI) {
+        logger.warn(
+          `[processAgentFileUpload] Falling back to native OpenAI upload for "${file.originalname}" after OCR/document parser failure.`,
+        );
+        const nativeMetadata = { ...metadata };
+        delete nativeMetadata.tool_resource;
+        return await processFileUpload({ req, res, metadata: nativeMetadata });
+      }
+
       throw new Error(
         `Unable to extract text from "${file.originalname}". The document may be image-based and requires an OCR service to process.`,
       );

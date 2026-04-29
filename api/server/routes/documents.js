@@ -28,6 +28,7 @@ const router = express.Router();
 
 const deps = {
   findFileById: db.findFileById,
+  getFiles: db.getFiles,
   createStudyDocument: db.createStudyDocument,
   listStudyDocuments: db.listStudyDocuments,
   listExploreStudyDocuments: db.listExploreStudyDocuments,

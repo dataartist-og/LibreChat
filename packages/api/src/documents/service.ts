@@ -93,6 +93,7 @@ type HydratableDocumentAsset = {
 
 export interface DocumentServiceDeps {
   findFileById: AllMethods['findFileById'];
+  getFiles: AllMethods['getFiles'];
   createStudyDocument: AllMethods['createStudyDocument'];
   listStudyDocuments: AllMethods['listStudyDocuments'];
   listExploreStudyDocuments: AllMethods['listExploreStudyDocuments'];
@@ -129,6 +130,43 @@ export interface DocumentServiceDeps {
   upsertLearnerKnowledgeEdge: AllMethods['upsertLearnerKnowledgeEdge'];
   createLearnerEvent: AllMethods['createLearnerEvent'];
   listLearnerEvents: AllMethods['listLearnerEvents'];
+}
+
+async function resolveSourceFileWithText(
+  deps: DocumentServiceDeps,
+  userId: string,
+  sourceFile: IMongoFile,
+): Promise<IMongoFile> {
+  if (sourceFile.text?.trim() || !sourceFile.temp_file_id) {
+    return sourceFile;
+  }
+
+  const linkedFiles =
+    (await deps.getFiles(
+      {
+        user: userId,
+        temp_file_id: sourceFile.temp_file_id,
+        text: { $exists: true, $ne: null },
+      },
+      { updatedAt: -1 },
+      {
+        file_id: 1,
+        temp_file_id: 1,
+        text: 1,
+        metadata: 1,
+      },
+    )) ?? [];
+
+  const extracted = linkedFiles.find((file) => file.text?.trim());
+  if (!extracted?.text?.trim()) {
+    return sourceFile;
+  }
+
+  return {
+    ...sourceFile,
+    text: extracted.text,
+    metadata: sourceFile.metadata ?? extracted.metadata,
+  };
 }
 
 async function safeRecordDocumentObservation(
@@ -680,10 +718,13 @@ export async function createStudyDocumentFromFile(
     return buildWorkspace(deps, userId, existing);
   }
 
-  const file = await deps.findFileById(payload.sourceFileId, { user: userId });
-  if (!file) {
+  const sourceFile = await deps.findFileById(payload.sourceFileId, { user: userId });
+  if (!sourceFile) {
     throw new Error('Source file not found');
   }
+
+  const file = await resolveSourceFileWithText(deps, userId, sourceFile);
+
   if (!file.text || !file.text.trim()) {
     throw new Error('Source file does not contain extracted document text');
   }
@@ -844,8 +885,13 @@ export async function reingestStudyDocument(
     throw new Error('Document not found');
   }
 
-  const file = await deps.findFileById(document.sourceFileId);
-  if (!file || !file.text?.trim()) {
+  const sourceFile = await deps.findFileById(document.sourceFileId, { user: userId });
+  if (!sourceFile) {
+    throw new Error('Source file does not contain extracted document text');
+  }
+
+  const file = await resolveSourceFileWithText(deps, userId, sourceFile);
+  if (!file.text?.trim()) {
     throw new Error('Source file does not contain extracted document text');
   }
 

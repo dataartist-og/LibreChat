@@ -254,6 +254,7 @@ else
     mkdir -p "${LOG_DIR}"
     nohup env \
       NODE_ENV=production \
+      BAN_VIOLATIONS="${BAN_VIOLATIONS:-false}" \
       MONGO_URI="${MONGO_URI_RUNTIME}" \
       MEILI_HOST="${MEILI_HOST_RUNTIME}" \
       RAG_API_URL="${RAG_API_URL_RUNTIME}" \
@@ -261,6 +262,7 @@ else
   else
     env \
       NODE_ENV=production \
+      BAN_VIOLATIONS="${BAN_VIOLATIONS:-false}" \
       MONGO_URI="${MONGO_URI_RUNTIME}" \
       MEILI_HOST="${MEILI_HOST_RUNTIME}" \
       RAG_API_URL="${RAG_API_URL_RUNTIME}" \
