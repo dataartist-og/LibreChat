@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, MessageCirclePlus } from 'lucide-react';
+import { BarChart3, MessageCirclePlus, PauseCircle, PlayCircle } from 'lucide-react';
 import type {
   TDocumentAnchor,
   TDocumentBlock,
@@ -17,7 +17,7 @@ import {
   useCreateDocumentClarificationMutation,
   useCreateDocumentVisualizationMutation,
 } from '~/data-provider/Documents';
-import type { DocumentSpeechActiveState } from './Speech';
+import type { DocumentSpeechActiveState, DocumentSpeechPlayerState } from './Speech';
 import DocumentClarificationCard from './ClarificationCard';
 import DocumentVisualizationCard from './VisualizationCard';
 
@@ -41,9 +41,11 @@ type DocumentAsset = {
   dataUri?: string | null;
   annotation?: string | null;
   mimeType?: string | null;
+  ocrImageId?: string | null;
 };
 
 const documentHtmlEntityPattern = /&(nbsp|lt|gt|amp|quot|#39|#x27);/gi;
+const documentImageMarkdownPattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const documentHtmlEntities: Record<string, string> = {
   nbsp: ' ',
   lt: '<',
@@ -62,6 +64,24 @@ function decodeDocumentMarkdown(value: string): string {
   return value.replace(documentHtmlEntityPattern, (match, entity: string) => {
     const decoded = documentHtmlEntities[entity.toLowerCase()];
     return decoded ?? match;
+  });
+}
+
+function injectDocumentImageUris(
+  value: string,
+  imageAssetLookup: Map<string, string>,
+): string {
+  if (!value || imageAssetLookup.size === 0) {
+    return value;
+  }
+
+  return value.replace(documentImageMarkdownPattern, (match, altText: string, target: string) => {
+    const dataUri = imageAssetLookup.get(target.trim());
+    if (!dataUri) {
+      return match;
+    }
+
+    return `![${altText}](${dataUri})`;
   });
 }
 
@@ -282,13 +302,18 @@ function groupAnchors(
 function DocumentBlockBody({
   block,
   asset,
+  imageAssetLookup,
 }: {
   block: TDocumentBlock;
   asset?: DocumentAsset | null;
+  imageAssetLookup: Map<string, string>;
 }) {
-  const normalizedContent = decodeDocumentMarkdown(block.contentMarkdown);
+  const normalizedContent = injectDocumentImageUris(
+    decodeDocumentMarkdown(block.contentMarkdown),
+    imageAssetLookup,
+  );
   const markdownClassName =
-    "markdown prose prose-sm message-content dark:prose-invert max-w-none break-words text-text-primary dark:text-gray-100 [&_.katex-error]:whitespace-pre-wrap [&_.katex-error]:text-text-primary dark:[&_.katex-error]:text-gray-100";
+    "markdown prose prose-sm message-content dark:prose-invert max-w-none break-words text-text-primary dark:text-gray-100 [&_.katex-error]:whitespace-pre-wrap [&_.katex-error]:text-text-primary dark:[&_.katex-error]:text-gray-100 [&_img]:mx-auto [&_img]:max-h-[28rem] [&_img]:w-auto [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-border-light";
 
   if (block.type === 'page_break') {
     return (
@@ -328,10 +353,18 @@ export default function DocumentViewer({
   workspace,
   activeSpeech = null,
   highlightMode = 'off',
+  playbackState = null,
+  onPausePlayback,
+  onPlayFromBlock,
+  viewerCanEdit = true,
 }: {
   workspace: TDocumentWorkspace;
   activeSpeech?: DocumentSpeechActiveState | null;
   highlightMode?: TDocumentSpeechHighlightMode;
+  playbackState?: DocumentSpeechPlayerState | null;
+  onPausePlayback?: () => void;
+  onPlayFromBlock?: (blockId: string) => void;
+  viewerCanEdit?: boolean;
 }) {
   const localize = useLocalize();
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -358,6 +391,18 @@ export default function DocumentViewer({
         .map((asset) => [asset.assetId, asset] as const),
     );
   }, [workspace.renderVersion.assetsJson, workspace.renderVersion.documentIrJson.assets]);
+  const imageAssetLookup = useMemo(() => {
+    const rawAssets =
+      workspace.renderVersion.documentIrJson.assets ?? workspace.renderVersion.assetsJson ?? [];
+
+    return new Map(
+      rawAssets
+        .filter(isDocumentAsset)
+        .flatMap((asset) =>
+          asset.ocrImageId && asset.dataUri ? [[asset.ocrImageId, asset.dataUri] as const] : [],
+        ),
+    );
+  }, [workspace.renderVersion.assetsJson, workspace.renderVersion.documentIrJson.assets]);
   const groupedAnchors = useMemo(
     () => groupAnchors(workspace.clarifications, workspace.visualizations),
     [workspace.clarifications, workspace.visualizations],
@@ -373,6 +418,9 @@ export default function DocumentViewer({
       anchor: TDocumentAnchor,
       position?: { top: number; left: number },
     ) => {
+      if (!viewerCanEdit) {
+        return;
+      }
       setSelectionState((current) => ({
         anchor,
         top: position?.top ?? current?.top ?? window.innerHeight / 2,
@@ -386,7 +434,7 @@ export default function DocumentViewer({
       }
       setComposerMode(mode);
     },
-    [localize],
+    [localize, viewerCanEdit],
   );
 
   const clearSelection = useCallback(() => {
@@ -395,6 +443,11 @@ export default function DocumentViewer({
   }, []);
 
   const handleSelectionCapture = useCallback(() => {
+    if (!viewerCanEdit) {
+      setSelectionState(null);
+      return;
+    }
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       setSelectionState(null);
@@ -448,7 +501,7 @@ export default function DocumentViewer({
       top: Math.max(12, rect.top - 52),
       left: rect.left + rect.width / 2,
     });
-  }, [blockLookup]);
+  }, [blockLookup, viewerCanEdit]);
 
   useEffect(() => {
     const current = viewerRef.current;
@@ -511,6 +564,10 @@ export default function DocumentViewer({
             const groups = groupedAnchors.get(block.blockId) ?? [];
             const blockAnchor = buildFullBlockAnchor(block);
             const asset = block.assetId ? assetLookup.get(block.assetId) ?? null : null;
+            const canPlayFromBlock =
+              block.type !== 'page_break' && Boolean(block.plainText.trim() || asset?.dataUri);
+            const isActivePlaybackBlock = playbackState?.currentBlockId === block.blockId;
+            const showPauseAction = isActivePlaybackBlock && playbackState?.isPlaying;
 
             return (
               <section
@@ -528,22 +585,47 @@ export default function DocumentViewer({
                     : ''
                 }`}
               >
-                {blockAnchor ? (
-                  <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      type="button"
-                      className="rounded-full border border-border-light bg-surface-primary px-2 py-1 text-xs font-medium text-text-secondary transition hover:text-text-primary"
-                      onClick={() => openComposer('clarification', blockAnchor)}
-                    >
-                      {localize('com_ui_clarify')}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-border-light bg-surface-primary px-2 py-1 text-xs font-medium text-text-secondary transition hover:text-text-primary"
-                      onClick={() => openComposer('visualization', blockAnchor)}
-                    >
-                      {localize('com_ui_visualize')}
-                    </button>
+                {canPlayFromBlock || blockAnchor ? (
+                  <div
+                    data-document-block-actions={block.blockId}
+                    className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100"
+                  >
+                    {canPlayFromBlock ? (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded-full border border-border-light bg-surface-primary px-2 py-1 text-xs font-medium text-text-secondary transition hover:text-text-primary"
+                        onClick={() =>
+                          showPauseAction ? onPausePlayback?.() : onPlayFromBlock?.(block.blockId)
+                        }
+                      >
+                        {showPauseAction ? (
+                          <PauseCircle className="h-3.5 w-3.5" />
+                        ) : (
+                          <PlayCircle className="h-3.5 w-3.5" />
+                        )}
+                        {showPauseAction
+                          ? localize('com_ui_document_tts_pause')
+                          : localize('com_ui_document_tts_play_from_here')}
+                      </button>
+                    ) : null}
+                    {viewerCanEdit && blockAnchor ? (
+                      <>
+                        <button
+                          type="button"
+                          className="rounded-full border border-border-light bg-surface-primary px-2 py-1 text-xs font-medium text-text-secondary transition hover:text-text-primary"
+                          onClick={() => openComposer('clarification', blockAnchor)}
+                        >
+                          {localize('com_ui_clarify')}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-border-light bg-surface-primary px-2 py-1 text-xs font-medium text-text-secondary transition hover:text-text-primary"
+                          onClick={() => openComposer('visualization', blockAnchor)}
+                        >
+                          {localize('com_ui_visualize')}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -555,7 +637,7 @@ export default function DocumentViewer({
                   </div>
                 ) : null}
 
-                <DocumentBlockBody block={block} asset={asset} />
+                <DocumentBlockBody block={block} asset={asset} imageAssetLookup={imageAssetLookup} />
 
                 {groups.length > 0 ? (
                   <div className="mt-4 space-y-3">
@@ -596,7 +678,7 @@ export default function DocumentViewer({
         </div>
       </div>
 
-      {selectionState && composerMode == null
+      {viewerCanEdit && selectionState && composerMode == null
         ? createPortal(
             <div
               className="z-[120] flex -translate-x-1/2 items-center gap-2 rounded-full border border-border-light bg-surface-primary px-2 py-2 shadow-lg"
@@ -627,7 +709,10 @@ export default function DocumentViewer({
           )
         : null}
 
-      <OGDialog open={composerMode != null} onOpenChange={(open) => !open && closeComposer()}>
+      <OGDialog
+        open={viewerCanEdit && composerMode != null}
+        onOpenChange={(open) => !open && closeComposer()}
+      >
         <OGDialogContent className="sm:max-w-2xl">
           <OGDialogHeader>
             <OGDialogTitle>

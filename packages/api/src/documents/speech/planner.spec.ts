@@ -71,6 +71,7 @@ describe('document speech planner', () => {
   it('creates continue, pause, and resume segments for display math handoff', async () => {
     const plan = await buildDocumentSpeechPlan({
       document,
+      pauseOnFigures: false,
       renderVersion,
       narrationModel: 'gpt-4o-mini',
       runNarrationModel: async (messages) => {
@@ -102,5 +103,56 @@ describe('document speech planner', () => {
     expect(plan.segments[2].focusBlockId).toBe('block-2');
     expect(plan.segments[2].playbackDirective).toBe('pause_for_visual');
     expect(plan.segments[3].spokenText).toBe('Then we can continue with the proof.');
+  });
+
+  it('adds a visual pause after figure blocks when pause-on-figures is enabled', async () => {
+    const figureRenderVersion: IDocumentRenderVersion = {
+      ...renderVersion,
+      documentIrJson: {
+        ...renderVersion.documentIrJson,
+        blocks: [
+          {
+            blockId: 'block-figure',
+            type: 'figure',
+            level: null,
+            title: null,
+            sourcePageStart: 1,
+            sourcePageEnd: 1,
+            contentMarkdown: 'Figure 1: Crystal mode exploration.',
+            contentHtml: null,
+            plainText: 'Figure 1: Crystal mode exploration.',
+            anchorPath: 'block:block-figure',
+            assetId: 'asset-1',
+          },
+        ],
+        assets: [
+          {
+            assetId: 'asset-1',
+            annotation: 'A chart showing crystal modes over training.',
+          },
+        ],
+      },
+      assetsJson: [
+        {
+          assetId: 'asset-1',
+          annotation: 'A chart showing crystal modes over training.',
+        },
+      ],
+    };
+
+    const plan = await buildDocumentSpeechPlan({
+      document,
+      pauseOnFigures: true,
+      renderVersion: figureRenderVersion,
+      narrationModel: 'gpt-4o-mini',
+      runNarrationModel: async () => '',
+    });
+
+    expect(plan.segments.map((segment) => segment.segmentKind)).toEqual([
+      'figure_summary',
+      'pause_for_visual',
+    ]);
+    expect(plan.segments[0].spokenText).toContain('Please inspect the figure in the document.');
+    expect(plan.segments[1].focusBlockId).toBe('block-figure');
   });
 });

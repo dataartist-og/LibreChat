@@ -204,6 +204,18 @@ export const studyDocumentSchema: Schema<IStudyDocument> = new Schema(
       type: String,
       default: null,
     },
+    sharingVisibility: {
+      type: String,
+      required: true,
+      enum: ['public', 'private'],
+      default: 'public',
+      index: true,
+    },
+    libraryUserIds: {
+      type: [String],
+      default: [],
+      index: true,
+    },
     createdByUserId: {
       type: String,
       required: true,
@@ -217,8 +229,9 @@ export const studyDocumentSchema: Schema<IStudyDocument> = new Schema(
   { timestamps: true },
 );
 
-studyDocumentSchema.index({ createdByUserId: 1, sourceFileId: 1, tenantId: 1 }, { unique: true });
-studyDocumentSchema.index({ createdByUserId: 1, updatedAt: -1 });
+studyDocumentSchema.index({ sourceFileId: 1, tenantId: 1 }, { unique: true });
+studyDocumentSchema.index({ libraryUserIds: 1, updatedAt: -1 });
+studyDocumentSchema.index({ sharingVisibility: 1, updatedAt: -1 });
 
 export const documentRenderVersionSchema: Schema<IDocumentRenderVersion> = new Schema(
   {
@@ -270,10 +283,7 @@ export const documentRenderVersionSchema: Schema<IDocumentRenderVersion> = new S
   { timestamps: true },
 );
 
-documentRenderVersionSchema.index(
-  { createdByUserId: 1, renderVersionId: 1, tenantId: 1 },
-  { unique: true },
-);
+documentRenderVersionSchema.index({ renderVersionId: 1, tenantId: 1 }, { unique: true });
 documentRenderVersionSchema.index({ documentId: 1, isActive: 1, versionNumber: -1 });
 
 export const documentOverlaySchema: Schema<IDocumentOverlay> = new Schema(
@@ -598,14 +608,14 @@ export const documentSpeechPlanSchema: Schema<IDocumentSpeechPlan> = new Schema(
   { timestamps: true },
 );
 
-documentSpeechPlanSchema.index({ createdByUserId: 1, planId: 1, tenantId: 1 }, { unique: true });
+documentSpeechPlanSchema.index({ planId: 1, tenantId: 1 }, { unique: true });
 documentSpeechPlanSchema.index(
   {
     documentId: 1,
     renderVersionId: 1,
     speechSurfaceFingerprint: 1,
     narrationPolicyVersion: 1,
-    createdByUserId: 1,
+    tenantId: 1,
   },
   { unique: true },
 );
@@ -726,10 +736,7 @@ export const documentSpeechSegmentSchema: Schema<IDocumentSpeechSegment> = new S
   { timestamps: true },
 );
 
-documentSpeechSegmentSchema.index(
-  { createdByUserId: 1, segmentId: 1, tenantId: 1 },
-  { unique: true },
-);
+documentSpeechSegmentSchema.index({ segmentId: 1, tenantId: 1 }, { unique: true });
 documentSpeechSegmentSchema.index({ planId: 1, segmentIndex: 1 });
 documentSpeechSegmentSchema.index({ documentId: 1, renderVersionId: 1, blockId: 1 });
 
@@ -808,12 +815,9 @@ export const documentSpeechAudioArtifactSchema: Schema<IDocumentSpeechAudioArtif
   { timestamps: true },
 );
 
+documentSpeechAudioArtifactSchema.index({ audioArtifactId: 1, tenantId: 1 }, { unique: true });
 documentSpeechAudioArtifactSchema.index(
-  { createdByUserId: 1, audioArtifactId: 1, tenantId: 1 },
-  { unique: true },
-);
-documentSpeechAudioArtifactSchema.index(
-  { createdByUserId: 1, audioCacheKey: 1, tenantId: 1 },
+  { documentId: 1, audioCacheKey: 1, tenantId: 1 },
   { unique: true },
 );
 documentSpeechAudioArtifactSchema.index({ segmentId: 1, status: 1, createdAt: -1 });

@@ -12,7 +12,9 @@ function invalidateDocumentQueries(
   documentId: string,
 ) {
   queryClient.invalidateQueries([QueryKeys.documents]);
-  queryClient.invalidateQueries([QueryKeys.documentWorkspace, documentId]);
+  queryClient.invalidateQueries([QueryKeys.exploreDocuments]);
+  queryClient.invalidateQueries([QueryKeys.documentWorkspace, 'library', documentId]);
+  queryClient.invalidateQueries([QueryKeys.documentWorkspace, 'explore', documentId]);
   queryClient.invalidateQueries([QueryKeys.learner]);
 }
 
@@ -32,9 +34,28 @@ export const useCreateStudyDocumentMutation = (): UseMutationResult<
     onSuccess: (workspace) => {
       queryClient.invalidateQueries([QueryKeys.documents]);
       queryClient.setQueryData(
-        [QueryKeys.documentWorkspace, workspace.document.documentId],
+        [QueryKeys.documentWorkspace, 'library', workspace.document.documentId],
         workspace,
       );
+    },
+  });
+};
+
+export const useImportStudyDocumentMutation = (): UseMutationResult<
+  t.TDocumentWorkspace,
+  unknown,
+  t.TStudyDocumentImportRequest,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.importStudyDocument], {
+    mutationFn: ({ documentId }) => dataService.importStudyDocument(documentId),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (workspace, _payload, context) => {
+      const documentId = context?.documentId ?? workspace.document.documentId;
+      queryClient.setQueryData([QueryKeys.documentWorkspace, 'library', documentId], workspace);
+      invalidateDocumentQueries(queryClient, documentId);
     },
   });
 };
@@ -52,8 +73,28 @@ export const useReingestStudyDocumentMutation = (): UseMutationResult<
     onMutate: ({ documentId }) => ({ documentId }),
     onSuccess: (workspace, _payload, context) => {
       const documentId = context?.documentId ?? workspace.document.documentId;
-      queryClient.setQueryData([QueryKeys.documentWorkspace, documentId], workspace);
+      queryClient.setQueryData([QueryKeys.documentWorkspace, 'library', documentId], workspace);
       invalidateDocumentQueries(queryClient, documentId);
+    },
+  });
+};
+
+export const useUpdateStudyDocumentSharingMutation = (): UseMutationResult<
+  t.TStudyDocument,
+  unknown,
+  t.TStudyDocumentSharingRequest,
+  DocumentMutationContext
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation([MutationKeys.updateStudyDocumentSharing], {
+    mutationFn: (payload) => dataService.updateStudyDocumentSharing(payload),
+    onMutate: ({ documentId }) => ({ documentId }),
+    onSuccess: (_document, _payload, context) => {
+      if (!context) {
+        return;
+      }
+      invalidateDocumentQueries(queryClient, context.documentId);
     },
   });
 };

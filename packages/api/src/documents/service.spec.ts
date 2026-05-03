@@ -5,7 +5,11 @@ import {
   createDocumentClarification,
   createDocumentVisualization,
   createStudyDocumentFromFile,
+  getExploreStudyDocumentWorkspace,
   integrateDocumentClarification,
+  importStudyDocument,
+  listExploreStudyDocuments,
+  updateStudyDocumentSharing,
 } from './service';
 
 const mockChatCreate = jest.fn();
@@ -32,6 +36,7 @@ jest.mock('~/visualizations/storage', () => ({
 
 describe('document service', () => {
   const userId = new mongoose.Types.ObjectId().toString();
+  const userIdTwo = new mongoose.Types.ObjectId().toString();
   const projectId = 'project-1';
   let mongoServer: MongoMemoryServer;
   let methods: ReturnType<typeof createMethods>;
@@ -68,22 +73,25 @@ describe('document service', () => {
   async function createSourceFile(
     text: string,
     options: {
+      userId?: string;
       type?: string;
       filename?: string;
       filepath?: string;
+      metadata?: Record<string, unknown>;
     } = {},
   ) {
     const fileId = new mongoose.Types.ObjectId().toString();
     const file = await methods.createFile(
       {
         file_id: fileId,
-        user: new mongoose.Types.ObjectId(userId),
+        user: new mongoose.Types.ObjectId(options.userId ?? userId),
         projectId,
         filename: options.filename ?? 'entropy.pdf',
         filepath: options.filepath ?? `/tmp/${fileId}.pdf`,
         type: options.type ?? 'application/pdf',
         bytes: Buffer.byteLength(text, 'utf8'),
         text,
+        metadata: options.metadata,
       },
       true,
     );
@@ -95,7 +103,7 @@ describe('document service', () => {
     return file;
   }
 
-  async function createWorkspace() {
+  async function createWorkspace(ownerUserId = userId) {
     const file = await createSourceFile(
       [
         '# Entropy',
@@ -105,9 +113,12 @@ describe('document service', () => {
         '- Disorder',
         '- Microstates',
       ].join('\n'),
+      {
+        userId: ownerUserId,
+      },
     );
 
-    return createStudyDocumentFromFile(methods, userId, {
+    return createStudyDocumentFromFile(methods, ownerUserId, {
       sourceFileId: file.file_id,
       projectId,
       title: 'Entropy Notes',
@@ -227,6 +238,68 @@ describe('document service', () => {
     expect(workspace.renderVersion.outlineJson.length).toBeGreaterThan(0);
   });
 
+  it('hydrates OCR figure assets by OCR image id instead of positional index', async () => {
+    const file = await createSourceFile(
+      ['# PAGE 1', '![img-1.jpeg](img-1.jpeg)', '', 'Figure 1: Latent clusters.'].join('\n'),
+      {
+        type: 'application/pdf',
+        filename: 'test_data.pdf',
+        filepath: 'mistral_ocr',
+        metadata: {
+          ocr: {
+            provider: 'mistral',
+            pages: [
+              {
+                index: 0,
+                dimensions: {
+                  dpi: 200,
+                  height: 1000,
+                  width: 800,
+                },
+                images: [
+                  {
+                    id: 'page-snapshot-1',
+                    topLeftX: 0,
+                    topLeftY: 0,
+                    bottomRightX: 800,
+                    bottomRightY: 1000,
+                    imageBase64: 'c25hcHNob3QtYmFzZTY0',
+                    reusable: true,
+                  },
+                  {
+                    id: 'img-1.jpeg',
+                    topLeftX: 100,
+                    topLeftY: 120,
+                    bottomRightX: 500,
+                    bottomRightY: 520,
+                    imageBase64: 'data:image/jpeg;base64,ZmlndXJlLWJhc2U2NA==',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    const workspace = await createStudyDocumentFromFile(methods, userId, {
+      sourceFileId: file.file_id,
+      projectId,
+      title: 'Test Data',
+    });
+
+    const figureBlock = workspace.renderVersion.documentIrJson.blocks.find(
+      (block) => block.type === 'figure',
+    );
+    const hydratedAsset = workspace.renderVersion.documentIrJson.assets?.find(
+      (asset) => asset.assetId === figureBlock?.assetId,
+    ) as { dataUri?: string | null; ocrImageId?: string | null } | undefined;
+
+    expect(figureBlock?.plainText).toBe('Figure 1: Latent clusters.');
+    expect(hydratedAsset?.ocrImageId).toBe('img-1.jpeg');
+    expect(hydratedAsset?.dataUri).toBe('data:image/jpeg;base64,ZmlndXJlLWJhc2U2NA==');
+  });
+
   it('creates document visualizations with the same visualization id used for persisted payload storage', async () => {
     const workspace = await createWorkspace();
     const paragraphBlock = workspace.renderVersion.documentIrJson.blocks.find(
@@ -277,5 +350,88 @@ describe('document service', () => {
       'image/svg+xml',
       '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg>',
     );
+  });
+
+  it('supports public explore preview, import, and owner privacy toggles', async () => {
+    const ownerWorkspace = await createWorkspace(userId);
+    const paragraphBlock = ownerWorkspace.renderVersion.documentIrJson.blocks.find(
+      (block) => block.type === 'paragraph',
+    );
+
+    if (!paragraphBlock) {
+      throw new Error('Paragraph block fixture was not created');
+    }
+
+    mockChatCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: 'Entropy measures how many microscopic states fit the same macrostate.',
+          },
+        },
+      ],
+    });
+
+    const clarification = await createDocumentClarification(methods, userId, {
+      documentId: ownerWorkspace.document.documentId,
+      renderVersionId: ownerWorkspace.renderVersion.renderVersionId,
+      anchor: {
+        blockId: paragraphBlock.blockId,
+        blockType: paragraphBlock.type,
+        anchorText: 'Entropy',
+        anchorContextBefore: '',
+        anchorContextAfter: ' increases in isolated systems.',
+        startOffset: 0,
+        endOffset: 7,
+        headingPath: [],
+        pageStart: paragraphBlock.sourcePageStart ?? null,
+        pageEnd: paragraphBlock.sourcePageEnd ?? null,
+      },
+      clarificationQuestion: 'What does entropy mean here?',
+    });
+
+    await integrateDocumentClarification(methods, userId, {
+      clarificationId: clarification.clarificationId,
+    });
+
+    const exploreDocuments = await listExploreStudyDocuments(methods, userIdTwo);
+    expect(exploreDocuments).toHaveLength(1);
+    expect(exploreDocuments[0].documentId).toBe(ownerWorkspace.document.documentId);
+    expect(exploreDocuments[0].isOwner).toBe(false);
+    expect(exploreDocuments[0].isImported).toBe(false);
+
+    const sharedPreview = await getExploreStudyDocumentWorkspace(
+      methods,
+      userIdTwo,
+      ownerWorkspace.document.documentId,
+    );
+    expect(sharedPreview.document.isOwner).toBe(false);
+    expect(sharedPreview.document.isImported).toBe(false);
+    expect(sharedPreview.clarifications).toHaveLength(1);
+    expect(sharedPreview.clarifications[0].clarificationAnswer).toContain('microscopic states');
+
+    const importedWorkspace = await importStudyDocument(
+      methods,
+      userIdTwo,
+      ownerWorkspace.document.documentId,
+    );
+    expect(importedWorkspace.document.isOwner).toBe(false);
+    expect(importedWorkspace.document.isImported).toBe(true);
+    expect(importedWorkspace.clarifications).toHaveLength(1);
+    expect(importedWorkspace.clarifications[0].clarificationQuestion).toBe(
+      clarification.clarificationQuestion,
+    );
+
+    const importedDocuments = await methods.listStudyDocuments(userIdTwo);
+    expect(importedDocuments).toHaveLength(1);
+
+    const updatedDocument = await updateStudyDocumentSharing(methods, userId, {
+      documentId: ownerWorkspace.document.documentId,
+      sharingVisibility: 'private',
+    });
+    expect(updatedDocument.sharingVisibility).toBe('private');
+
+    const exploreAfterPrivacyToggle = await listExploreStudyDocuments(methods, userIdTwo);
+    expect(exploreAfterPrivacyToggle).toHaveLength(0);
   });
 });

@@ -2,8 +2,12 @@ const express = require('express');
 const { logger } = require('@librechat/data-schemas');
 const {
   listStudyDocuments,
+  listExploreStudyDocuments,
   createStudyDocumentFromFile,
   getStudyDocumentWorkspace,
+  getExploreStudyDocumentWorkspace,
+  importStudyDocument,
+  updateStudyDocumentSharing,
   reingestStudyDocument,
   createDocumentClarification,
   integrateDocumentClarification,
@@ -26,8 +30,12 @@ const deps = {
   findFileById: db.findFileById,
   createStudyDocument: db.createStudyDocument,
   listStudyDocuments: db.listStudyDocuments,
+  listExploreStudyDocuments: db.listExploreStudyDocuments,
   getStudyDocument: db.getStudyDocument,
+  getOwnedStudyDocument: db.getOwnedStudyDocument,
+  getSharedStudyDocument: db.getSharedStudyDocument,
   getStudyDocumentBySourceFile: db.getStudyDocumentBySourceFile,
+  addStudyDocumentToLibrary: db.addStudyDocumentToLibrary,
   updateStudyDocument: db.updateStudyDocument,
   createDocumentRenderVersion: db.createDocumentRenderVersion,
   listDocumentRenderVersions: db.listDocumentRenderVersions,
@@ -116,10 +124,34 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/explore', async (req, res) => {
+  try {
+    const documents = await listExploreStudyDocuments(deps, req.user.id, {
+      projectId: req.query.projectId ?? undefined,
+    });
+    res.status(200).json(documents);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const workspace = await createStudyDocumentFromFile(deps, req.user.id, req.body);
     res.status(201).json(workspace);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.get('/explore/:documentId', async (req, res) => {
+  try {
+    const workspace = await getExploreStudyDocumentWorkspace(
+      deps,
+      req.user.id,
+      req.params.documentId,
+    );
+    res.status(200).json(workspace);
   } catch (error) {
     handleDocumentError(res, error);
   }
@@ -198,6 +230,27 @@ router.post('/:documentId/reingest', async (req, res) => {
   try {
     const workspace = await reingestStudyDocument(deps, req.user.id, req.params.documentId);
     res.status(200).json(workspace);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.post('/:documentId/import', async (req, res) => {
+  try {
+    const workspace = await importStudyDocument(deps, req.user.id, req.params.documentId);
+    res.status(200).json(workspace);
+  } catch (error) {
+    handleDocumentError(res, error);
+  }
+});
+
+router.patch('/:documentId/sharing', async (req, res) => {
+  try {
+    const document = await updateStudyDocumentSharing(deps, req.user.id, {
+      documentId: req.params.documentId,
+      sharingVisibility: req.body.sharingVisibility,
+    });
+    res.status(200).json(document);
   } catch (error) {
     handleDocumentError(res, error);
   }

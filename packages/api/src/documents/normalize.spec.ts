@@ -219,4 +219,123 @@ describe('document normalize', () => {
       assetId: expect.stringContaining('page-snapshot-1'),
     });
   });
+
+  it('maps OCR image placeholders to figure blocks before falling back to caption heuristics', () => {
+    const result = normalizeDocumentText({
+      documentId: 'document-7',
+      projectId: 'project-1',
+      sourceFileId: 'file-7',
+      sourceMimeType: 'application/pdf',
+      sourceFilename: 'placeholder-figures.pdf',
+      sourcePath: 'mistral_ocr',
+      title: 'Placeholder Figures',
+      text: ['# PAGE 1', '![img-0.jpeg](img-0.jpeg)', '', 'Figure 1: Mode exploration.'].join('\n'),
+      ocrPages: [
+        {
+          index: 0,
+          dimensions: {
+            dpi: 200,
+            height: 1000,
+            width: 800,
+          },
+          images: [
+            {
+              id: 'img-0.jpeg',
+              topLeftX: 10,
+              topLeftY: 20,
+              bottomRightX: 410,
+              bottomRightY: 420,
+              imageBase64: 'ZmFrZS1wbGFjZWhvbGRlci1pbWFnZQ==',
+            },
+          ],
+        },
+      ],
+      renderVersion: 1,
+    });
+
+    const figureBlocks = result.ir.blocks.filter((block) => block.type === 'figure');
+    const paragraphBlocks = result.ir.blocks.filter((block) => block.type === 'paragraph');
+
+    expect(figureBlocks).toHaveLength(1);
+    expect(figureBlocks[0]).toMatchObject({
+      type: 'figure',
+      plainText: 'Figure 1: Mode exploration.',
+      assetId: expect.stringContaining('img-0.jpeg'),
+    });
+    expect(
+      paragraphBlocks.some((block) => block.contentMarkdown.includes('![img-0.jpeg](img-0.jpeg)')),
+    ).toBe(false);
+    expect(result.ir.assets).toEqual([
+      expect.objectContaining({
+        assetId: expect.stringContaining('img-0.jpeg'),
+        ocrImageId: 'img-0.jpeg',
+      }),
+    ]);
+  });
+
+  it('folds trailing figure captions into the preceding same-page figure block', () => {
+    const result = normalizeDocumentText({
+      documentId: 'document-8',
+      projectId: 'project-1',
+      sourceFileId: 'file-8',
+      sourceMimeType: 'application/pdf',
+      sourceFilename: 'subfigures.pdf',
+      sourcePath: 'mistral_ocr',
+      title: 'Subfigures',
+      text: [
+        '# PAGE 1',
+        '![img-0.jpeg](img-0.jpeg)',
+        '',
+        '(a) Distribution of formation energy term',
+        '',
+        '![img-1.jpeg](img-1.jpeg)',
+        '',
+        '(b) Distribution of density term',
+        '',
+        'Figure 9: The distribution of structures sampled by four models.',
+      ].join('\n'),
+      ocrPages: [
+        {
+          index: 0,
+          dimensions: {
+            dpi: 200,
+            height: 1000,
+            width: 800,
+          },
+          images: [
+            {
+              id: 'img-0.jpeg',
+              topLeftX: 10,
+              topLeftY: 20,
+              bottomRightX: 410,
+              bottomRightY: 420,
+              imageBase64: 'ZmFrZS1maWd1cmUtMQ==',
+            },
+            {
+              id: 'img-1.jpeg',
+              topLeftX: 420,
+              topLeftY: 20,
+              bottomRightX: 780,
+              bottomRightY: 420,
+              imageBase64: 'ZmFrZS1maWd1cmUtMg==',
+            },
+          ],
+        },
+      ],
+      renderVersion: 1,
+    });
+
+    const figureBlocks = result.ir.blocks.filter((block) => block.type === 'figure');
+
+    expect(figureBlocks).toHaveLength(2);
+    expect(figureBlocks[1]?.plainText).toContain('(b) Distribution of density term');
+    expect(figureBlocks[1]?.plainText).toContain(
+      'Figure 9: The distribution of structures sampled by four models.',
+    );
+    expect(
+      result.ir.blocks.some(
+        (block) => block.type === 'paragraph' && /^Figure 9:/i.test(block.plainText.trim()),
+      ),
+    ).toBe(false);
+  });
 });

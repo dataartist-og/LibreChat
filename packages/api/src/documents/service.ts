@@ -38,6 +38,11 @@ type CreateStudyDocumentPayload = {
   title?: string | null;
 };
 
+type UpdateStudyDocumentSharingPayload = {
+  documentId: string;
+  sharingVisibility: IStudyDocument['sharingVisibility'];
+};
+
 type CreateDocumentClarificationPayload = {
   documentId: string;
   renderVersionId: string;
@@ -81,6 +86,7 @@ type HydratableDocumentAsset = {
   source: string;
   pageNumber: number;
   imageIndex: number;
+  ocrImageId?: string | null;
   mimeType?: string;
   [key: string]: unknown;
 };
@@ -89,8 +95,12 @@ export interface DocumentServiceDeps {
   findFileById: AllMethods['findFileById'];
   createStudyDocument: AllMethods['createStudyDocument'];
   listStudyDocuments: AllMethods['listStudyDocuments'];
+  listExploreStudyDocuments: AllMethods['listExploreStudyDocuments'];
   getStudyDocument: AllMethods['getStudyDocument'];
+  getOwnedStudyDocument: AllMethods['getOwnedStudyDocument'];
+  getSharedStudyDocument: AllMethods['getSharedStudyDocument'];
   getStudyDocumentBySourceFile: AllMethods['getStudyDocumentBySourceFile'];
+  addStudyDocumentToLibrary: AllMethods['addStudyDocumentToLibrary'];
   updateStudyDocument: AllMethods['updateStudyDocument'];
   createDocumentRenderVersion: AllMethods['createDocumentRenderVersion'];
   listDocumentRenderVersions: AllMethods['listDocumentRenderVersions'];
@@ -317,6 +327,15 @@ function isHydratableDocumentAsset(asset: unknown): asset is HydratableDocumentA
   );
 }
 
+function toDocumentAssetDataUri(imageBase64: string, mimeType?: string | null): string {
+  const trimmed = imageBase64.trim();
+  if (/^data:/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `data:${mimeType || 'image/png'};base64,${trimmed}`;
+}
+
 function hydrateDocumentAssets(
   renderVersion: IDocumentRenderVersion,
   sourceFile?: IMongoFile | null,
@@ -346,14 +365,17 @@ function hydrateDocumentAssets(
     }
 
     const page = pageLookup.get(asset.pageNumber);
-    const image = page?.images?.[asset.imageIndex - 1];
+    const image =
+      (asset.ocrImageId
+        ? page?.images?.find((candidate) => candidate.id === asset.ocrImageId)
+        : null) ?? page?.images?.[asset.imageIndex - 1];
     if (!image?.imageBase64) {
       return asset;
     }
 
     return {
       ...asset,
-      dataUri: `data:${asset.mimeType || 'image/png'};base64,${image.imageBase64}`,
+      dataUri: toDocumentAssetDataUri(image.imageBase64, asset.mimeType),
     };
   });
 
@@ -450,44 +472,171 @@ async function syncDocumentOverlay(
   return overlay;
 }
 
+function decorateDocumentForViewer(userId: string, document: IStudyDocument): IStudyDocument {
+  const isOwner = document.createdByUserId === userId;
+  const isImported = !isOwner && document.libraryUserIds.includes(userId);
+
+  return {
+    ...document,
+    isImported,
+    isOwner,
+  };
+}
+
 async function buildWorkspace(
   deps: DocumentServiceDeps,
-  userId: string,
+  viewerUserId: string,
   document: IStudyDocument,
+  options: {
+    annotationUserId?: string;
+  } = {},
 ): Promise<DocumentWorkspace> {
+  const annotationUserId = options.annotationUserId ?? viewerUserId;
   const renderVersion =
     (document.activeRenderVersionId
-      ? await deps.getDocumentRenderVersion(userId, document.activeRenderVersionId)
-      : await deps.getActiveDocumentRenderVersion(userId, document.documentId)) ?? null;
+      ? await deps.getDocumentRenderVersion(annotationUserId, document.activeRenderVersionId)
+      : await deps.getActiveDocumentRenderVersion(annotationUserId, document.documentId)) ?? null;
 
   if (!renderVersion) {
     throw new Error('Document render version not found');
   }
 
   const [overlay, clarifications, visualizations, sourceFile] = await Promise.all([
-    deps.getActiveDocumentOverlay(userId, document.documentId),
-    deps.listDocumentClarifications(userId, {
+    deps.getActiveDocumentOverlay(annotationUserId, document.documentId),
+    deps.listDocumentClarifications(annotationUserId, {
       documentId: document.documentId,
       renderVersionId: renderVersion.renderVersionId,
       includeArchived: false,
     }),
-    deps.listDocumentVisualizations(userId, {
+    deps.listDocumentVisualizations(annotationUserId, {
       documentId: document.documentId,
       renderVersionId: renderVersion.renderVersionId,
       includeDeleted: false,
       includeArchived: false,
       includeAllVersions: false,
     }),
-    deps.findFileById(document.sourceFileId, { user: userId }),
+    deps.findFileById(document.sourceFileId),
   ]);
 
   return {
-    document,
+    document: decorateDocumentForViewer(viewerUserId, document),
     renderVersion: hydrateDocumentAssets(renderVersion, sourceFile),
     overlay,
     clarifications,
     visualizations,
   };
+}
+
+async function copySharedDocumentState(
+  deps: DocumentServiceDeps,
+  userId: string,
+  document: IStudyDocument,
+): Promise<void> {
+  const renderVersion =
+    (document.activeRenderVersionId
+      ? await deps.getDocumentRenderVersion(document.createdByUserId, document.activeRenderVersionId)
+      : await deps.getActiveDocumentRenderVersion(document.createdByUserId, document.documentId)) ??
+    null;
+
+  if (!renderVersion) {
+    return;
+  }
+
+  const [existingOverlay, sourceClarifications, sourceVisualizations, overlays] = await Promise.all([
+    deps.getActiveDocumentOverlay(userId, document.documentId),
+    deps.listDocumentClarifications(document.createdByUserId, {
+      documentId: document.documentId,
+      renderVersionId: renderVersion.renderVersionId,
+      includeArchived: false,
+    }),
+    deps.listDocumentVisualizations(document.createdByUserId, {
+      documentId: document.documentId,
+      renderVersionId: renderVersion.renderVersionId,
+      includeDeleted: false,
+      includeArchived: false,
+      includeAllVersions: false,
+    }),
+    deps.listDocumentOverlays(userId, document.documentId),
+  ]);
+
+  if (existingOverlay || (sourceClarifications.length === 0 && sourceVisualizations.length === 0)) {
+    return;
+  }
+
+  const clarificationIdMap = new Map<string, string>();
+  for (const clarification of sourceClarifications) {
+    const createdClarification = await deps.createDocumentClarification(userId, {
+      documentId: clarification.documentId,
+      renderVersionId: clarification.renderVersionId,
+      overlayId: null,
+      anchor: clarification.anchor,
+      clarificationQuestion: clarification.clarificationQuestion,
+      clarificationAnswer: clarification.clarificationAnswer,
+      promptText: clarification.promptText ?? null,
+      modelProvider: clarification.modelProvider ?? null,
+      modelName: clarification.modelName ?? null,
+      status: clarification.status,
+      integratedAt: clarification.integratedAt ?? null,
+    });
+
+    clarificationIdMap.set(clarification.clarificationId, createdClarification.clarificationId);
+  }
+
+  const visualizationIdMap = new Map<string, string>();
+  for (const visualization of sourceVisualizations) {
+    const createdVisualization = await deps.createDocumentVisualization(userId, {
+      documentId: visualization.documentId,
+      renderVersionId: visualization.renderVersionId,
+      overlayId: null,
+      anchor: visualization.anchor,
+      title: visualization.title,
+      description: visualization.description,
+      artifactType: visualization.artifactType,
+      status: visualization.status,
+      storageMode: visualization.storageMode,
+      canonicalSourceText: visualization.canonicalSourceText,
+      canonicalSourceMimeType: visualization.canonicalSourceMimeType ?? null,
+      compiledRenderText: visualization.compiledRenderText ?? null,
+      compiledRenderMimeType: visualization.compiledRenderMimeType,
+      compiledRenderStoragePath: visualization.compiledRenderStoragePath ?? null,
+      sourcePrompt: visualization.sourcePrompt,
+      generationModel: visualization.generationModel ?? null,
+      generationMetadata: visualization.generationMetadata ?? null,
+      integrationState: visualization.integrationState,
+      isLatestVersion: true,
+      versionNumber: 1,
+      parentVisualizationId: null,
+      rootVisualizationId: null,
+      integratedAt: visualization.integratedAt ?? null,
+      deletedAt: null,
+    });
+
+    visualizationIdMap.set(visualization.visualizationId, createdVisualization.visualizationId);
+  }
+
+  const overlay = await deps.createDocumentOverlay(userId, {
+    documentId: document.documentId,
+    renderVersionId: renderVersion.renderVersionId,
+    overlayVersionNumber: (overlays[0]?.overlayVersionNumber ?? 0) + 1,
+    overlayJson: {
+      integratedClarificationIds: sourceClarifications
+        .filter((clarification) => clarification.status === 'integrated')
+        .map((clarification) => clarificationIdMap.get(clarification.clarificationId))
+        .filter((clarificationId): clarificationId is string => Boolean(clarificationId)),
+      integratedVisualizationIds: sourceVisualizations
+        .filter(
+          (visualization) =>
+            visualization.integrationState === 'integrated' &&
+            !visualization.deletedAt &&
+            visualization.status !== 'archived',
+        )
+        .map((visualization) => visualizationIdMap.get(visualization.visualizationId))
+        .filter((visualizationId): visualizationId is string => Boolean(visualizationId)),
+    },
+    isActive: true,
+  });
+
+  await deps.setActiveDocumentOverlay(userId, document.documentId, overlay.overlayId);
 }
 
 function getClarificationPreferredModel() {
@@ -508,7 +657,17 @@ export async function listStudyDocuments(
   userId: string,
   params?: { projectId?: string | null },
 ) {
-  return deps.listStudyDocuments(userId, params);
+  const documents = await deps.listStudyDocuments(userId, params);
+  return documents.map((document) => decorateDocumentForViewer(userId, document));
+}
+
+export async function listExploreStudyDocuments(
+  deps: DocumentServiceDeps,
+  userId: string,
+  params?: { projectId?: string | null },
+) {
+  const documents = await deps.listExploreStudyDocuments(userId, params);
+  return documents.map((document) => decorateDocumentForViewer(userId, document));
 }
 
 export async function createStudyDocumentFromFile(
@@ -613,17 +772,79 @@ export async function getStudyDocumentWorkspace(
   return buildWorkspace(deps, userId, document);
 }
 
+export async function getExploreStudyDocumentWorkspace(
+  deps: DocumentServiceDeps,
+  userId: string,
+  documentId: string,
+) {
+  const document = await deps.getSharedStudyDocument(documentId);
+  if (!document) {
+    throw new Error('Document not found');
+  }
+
+  return buildWorkspace(deps, userId, document, {
+    annotationUserId: document.createdByUserId,
+  });
+}
+
+export async function importStudyDocument(
+  deps: DocumentServiceDeps,
+  userId: string,
+  documentId: string,
+) {
+  const existingWorkspaceDocument = await deps.getStudyDocument(userId, documentId);
+  if (existingWorkspaceDocument) {
+    return buildWorkspace(deps, userId, existingWorkspaceDocument);
+  }
+
+  const document = await deps.getSharedStudyDocument(documentId);
+  if (!document) {
+    throw new Error('Document not found');
+  }
+
+  await deps.addStudyDocumentToLibrary(userId, documentId);
+  await copySharedDocumentState(deps, userId, document);
+
+  const importedDocument = await deps.getStudyDocument(userId, documentId);
+  if (!importedDocument) {
+    throw new Error('Document not found');
+  }
+
+  return buildWorkspace(deps, userId, importedDocument);
+}
+
+export async function updateStudyDocumentSharing(
+  deps: DocumentServiceDeps,
+  userId: string,
+  payload: UpdateStudyDocumentSharingPayload,
+) {
+  const document = await deps.getOwnedStudyDocument(userId, payload.documentId);
+  if (!document) {
+    throw new Error('Document not found');
+  }
+
+  const updatedDocument = await deps.updateStudyDocument(userId, payload.documentId, {
+    sharingVisibility: payload.sharingVisibility,
+  });
+
+  if (!updatedDocument) {
+    throw new Error('Document not found');
+  }
+
+  return decorateDocumentForViewer(userId, updatedDocument);
+}
+
 export async function reingestStudyDocument(
   deps: DocumentServiceDeps,
   userId: string,
   documentId: string,
 ) {
-  const document = await deps.getStudyDocument(userId, documentId);
+  const document = await deps.getOwnedStudyDocument(userId, documentId);
   if (!document) {
     throw new Error('Document not found');
   }
 
-  const file = await deps.findFileById(document.sourceFileId, { user: userId });
+  const file = await deps.findFileById(document.sourceFileId);
   if (!file || !file.text?.trim()) {
     throw new Error('Source file does not contain extracted document text');
   }

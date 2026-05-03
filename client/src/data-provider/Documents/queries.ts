@@ -19,13 +19,33 @@ export const useStudyDocumentsQuery = <TData = t.TStudyDocument[]>(
     },
   );
 
+export const useExploreStudyDocumentsQuery = <TData = t.TStudyDocument[]>(
+  projectId?: string | null,
+  config?: UseQueryOptions<t.TStudyDocument[], unknown, TData>,
+): QueryObserverResult<TData, unknown> =>
+  useQuery<t.TStudyDocument[], unknown, TData>(
+    [QueryKeys.exploreDocuments, projectId ?? 'all'],
+    () => dataService.listExploreStudyDocuments({ projectId }),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      enabled: config?.enabled ?? true,
+      staleTime: 10 * 1000,
+      ...config,
+    },
+  );
+
 export const useStudyDocumentWorkspaceQuery = <TData = t.TDocumentWorkspace>(
   documentId: string | null | undefined,
+  accessMode: 'library' | 'explore' = 'library',
   config?: UseQueryOptions<t.TDocumentWorkspace, unknown, TData>,
 ): QueryObserverResult<TData, unknown> =>
   useQuery<t.TDocumentWorkspace, unknown, TData>(
-    [QueryKeys.documentWorkspace, documentId],
-    () => dataService.getStudyDocumentWorkspace(documentId ?? ''),
+    [QueryKeys.documentWorkspace, accessMode, documentId],
+    () =>
+      accessMode === 'explore'
+        ? dataService.getExploreStudyDocumentWorkspace(documentId ?? '')
+        : dataService.getStudyDocumentWorkspace(documentId ?? ''),
     {
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,

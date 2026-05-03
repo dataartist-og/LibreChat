@@ -29,7 +29,13 @@ jest.mock('~/data-provider/Dialogs', () => ({
 }));
 
 jest.mock('~/data-provider/Documents', () => ({
+  useImportStudyDocumentMutation: () => ({
+    mutateAsync: jest.fn(),
+  }),
   useReingestStudyDocumentMutation: () => ({
+    mutateAsync: jest.fn(),
+  }),
+  useUpdateStudyDocumentSharingMutation: () => ({
     mutateAsync: jest.fn(),
   }),
 }));
@@ -41,7 +47,7 @@ jest.mock('../Viewer', () => ({
 
 jest.mock('../Speech', () => ({
   __esModule: true,
-  default: () => <div>speech-player</div>,
+  default: require('react').forwardRef(() => <div>speech-player</div>),
 }));
 
 const workspace: TDocumentWorkspace = {
@@ -56,7 +62,10 @@ const workspace: TDocumentWorkspace = {
     ingestionStrategy: 'ocr_markdown',
     activeRenderVersionId: 'render-1',
     activeOverlayId: 'overlay-1',
+    sharingVisibility: 'public',
     createdByUserId: 'user-1',
+    isImported: false,
+    isOwner: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },

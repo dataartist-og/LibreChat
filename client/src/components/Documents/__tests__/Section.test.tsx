@@ -8,6 +8,8 @@ const mockShowToast = jest.fn();
 const mockUploadFile = jest.fn();
 const mockCreateDocument = jest.fn();
 const mockUseStudyDocumentsQuery = jest.fn();
+const mockUseExploreStudyDocumentsQuery = jest.fn();
+const mockImportDocument = jest.fn();
 
 jest.mock('~/hooks', () => ({
   useLocalize: () => (key: string) => key,
@@ -24,6 +26,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/docs' }),
   useParams: () => ({}),
+  useSearchParams: () => [new URLSearchParams()],
 }));
 
 jest.mock('~/data-provider/Files/mutations', () => ({
@@ -38,13 +41,22 @@ jest.mock('~/data-provider/Documents', () => ({
     mutateAsync: mockCreateDocument,
     isLoading: false,
   }),
+  useImportStudyDocumentMutation: () => ({
+    mutateAsync: mockImportDocument,
+    isLoading: false,
+  }),
   useStudyDocumentsQuery: (...args: unknown[]) => mockUseStudyDocumentsQuery(...args),
+  useExploreStudyDocumentsQuery: (...args: unknown[]) => mockUseExploreStudyDocumentsQuery(...args),
 }));
 
 describe('DocumentsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseStudyDocumentsQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    mockUseExploreStudyDocumentsQuery.mockReturnValue({
       data: [],
       isLoading: false,
     });
@@ -55,6 +67,11 @@ describe('DocumentsSection', () => {
     mockCreateDocument.mockResolvedValue({
       document: {
         documentId: 'document-1',
+      },
+    });
+    mockImportDocument.mockResolvedValue({
+      document: {
+        documentId: 'document-2',
       },
     });
   });

@@ -10,6 +10,7 @@ import DocumentViewer from '../Viewer';
 
 const mockCreateClarification = jest.fn();
 const mockCreateVisualization = jest.fn();
+const mockMarkdownLite = jest.fn(({ content }: { content?: string }) => <div>{content}</div>);
 
 jest.mock('~/hooks', () => ({
   useLocalize: () => (key: string) => key,
@@ -25,7 +26,7 @@ jest.mock('@librechat/client', () => ({
 
 jest.mock('~/components/Chat/Messages/Content/MarkdownLite', () => ({
   __esModule: true,
-  default: ({ content }: { content?: string }) => <div>{content}</div>,
+  default: (props: { content?: string }) => mockMarkdownLite(props),
 }));
 
 jest.mock('~/data-provider/Documents', () => ({
@@ -207,6 +208,7 @@ const baseWorkspace: TDocumentWorkspace = {
 describe('DocumentViewer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockMarkdownLite.mockClear();
     mockCreateClarification.mockResolvedValue({});
     mockCreateVisualization.mockResolvedValue({});
   });
@@ -218,6 +220,54 @@ describe('DocumentViewer', () => {
     expect(screen.getByText('What does entropy mean?')).toBeInTheDocument();
     expect(screen.getByText('Entropy curve')).toBeInTheDocument();
     expect(screen.getByText('Entropy')).toBeInTheDocument();
+  });
+
+  it('starts and pauses speech playback from block controls', () => {
+    const onPausePlayback = jest.fn();
+    const onPlayFromBlock = jest.fn();
+    const { rerender } = render(
+      <DocumentViewer
+        workspace={baseWorkspace}
+        onPausePlayback={onPausePlayback}
+        onPlayFromBlock={onPlayFromBlock}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'com_ui_document_tts_play_from_here' }));
+
+    expect(onPlayFromBlock).toHaveBeenCalledWith('block-1');
+
+    const idleActionContainer = document.querySelector('[data-document-block-actions="block-1"]');
+
+    expect(idleActionContainer).toHaveClass('pointer-events-none');
+    expect(idleActionContainer).toHaveClass('opacity-0');
+    expect(idleActionContainer).toHaveClass('group-hover:opacity-100');
+    expect(idleActionContainer).not.toHaveClass('group-focus-within:opacity-100');
+
+    rerender(
+      <DocumentViewer
+        workspace={baseWorkspace}
+        playbackState={{
+          currentBlockId: 'block-1',
+          isPausedForVisual: false,
+          isPlaying: true,
+          isPreparing: false,
+        }}
+        onPausePlayback={onPausePlayback}
+        onPlayFromBlock={onPlayFromBlock}
+      />,
+    );
+
+    const activeActionContainer = document.querySelector('[data-document-block-actions="block-1"]');
+
+    expect(activeActionContainer).toHaveClass('pointer-events-none');
+    expect(activeActionContainer).toHaveClass('opacity-0');
+    expect(activeActionContainer).not.toHaveClass('opacity-100');
+    expect(activeActionContainer).not.toHaveClass('group-focus-within:opacity-100');
+
+    fireEvent.click(screen.getByRole('button', { name: 'com_ui_document_tts_pause' }));
+
+    expect(onPausePlayback).toHaveBeenCalled();
   });
 
   it('creates a clarification from the block-level document action', async () => {
@@ -379,6 +429,65 @@ describe('DocumentViewer', () => {
       'data:image/png;base64,ZmFrZQ==',
     );
     expect(screen.getByText('*Figure 1: Flow network diagram.*')).toBeInTheDocument();
+  });
+
+  it('rewrites OCR image placeholders to hydrated data URIs for inline markdown figures', () => {
+    const workspace: TDocumentWorkspace = {
+      ...baseWorkspace,
+      renderVersion: {
+        ...baseWorkspace.renderVersion,
+        documentIrJson: {
+          ...baseWorkspace.renderVersion.documentIrJson,
+          blocks: [
+            {
+              blockId: 'block-inline-figure',
+              type: 'paragraph',
+              assetId: null,
+              level: null,
+              title: null,
+              sourcePageStart: 1,
+              sourcePageEnd: 1,
+              contentMarkdown: '![img-3.jpeg](img-3.jpeg)\n\nFigure 4: Crystal mode exploration.',
+              contentHtml: null,
+              plainText: 'img-3.jpeg Figure 4: Crystal mode exploration.',
+              anchorPath: 'block:block-inline-figure',
+            },
+          ],
+          assets: [
+            {
+              assetId: 'ocr-figure-1-1-img-3.jpeg',
+              ocrImageId: 'img-3.jpeg',
+              dataUri: 'data:image/png;base64,ZmFrZQ==',
+            },
+          ],
+          anchorIndex: {
+            'block-inline-figure': {
+              blockId: 'block-inline-figure',
+              type: 'paragraph',
+            },
+          },
+        },
+        assetsJson: [
+          {
+            assetId: 'ocr-figure-1-1-img-3.jpeg',
+            ocrImageId: 'img-3.jpeg',
+            dataUri: 'data:image/png;base64,ZmFrZQ==',
+          },
+        ],
+      },
+      clarifications: [],
+      visualizations: [],
+    };
+
+    render(<DocumentViewer workspace={workspace} />);
+
+    expect(
+      mockMarkdownLite.mock.calls.some(
+        ([props]) =>
+          typeof props?.content === 'string' &&
+          props.content.includes('![img-3.jpeg](data:image/png;base64,ZmFrZQ==)'),
+      ),
+    ).toBe(true);
   });
 
   it('shows the active spoken excerpt when excerpt highlighting is enabled', () => {

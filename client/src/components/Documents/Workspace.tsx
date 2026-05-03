@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -7,7 +7,7 @@ import { useRecoilValue } from 'recoil';
 import supersub from 'remark-supersub';
 import type { TDocumentSpeechHighlightMode, TDocumentWorkspace } from 'librechat-data-provider';
 import type { PluggableList } from 'unified';
-import { BookOpenText, RotateCcw } from 'lucide-react';
+import { BookOpenText, Download, Globe2, Lock, RotateCcw } from 'lucide-react';
 import {
   OGDialog,
   OGDialogContent,
@@ -18,12 +18,20 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useLocalize } from '~/hooks';
 import { useCreateStarterDialogMutation } from '~/data-provider/Dialogs';
-import { useReingestStudyDocumentMutation } from '~/data-provider/Documents';
+import {
+  useImportStudyDocumentMutation,
+  useReingestStudyDocumentMutation,
+  useUpdateStudyDocumentSharingMutation,
+} from '~/data-provider/Documents';
 import { preprocessLaTeX } from '~/utils';
 import store from '~/store';
 import DocumentSpeech from './Speech';
 import DocumentViewer from './Viewer';
-import type { DocumentSpeechActiveState } from './Speech';
+import type {
+  DocumentSpeechActiveState,
+  DocumentSpeechHandle,
+  DocumentSpeechPlayerState,
+} from './Speech';
 
 const outlineRemarkPlugins: PluggableList = [
   supersub,
@@ -63,11 +71,24 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const reingestMutation = useReingestStudyDocumentMutation();
+  const importMutation = useImportStudyDocumentMutation();
+  const updateSharingMutation = useUpdateStudyDocumentSharingMutation();
   const createStarterDialogMutation = useCreateStarterDialogMutation();
   const highlightMode = useRecoilValue<TDocumentSpeechHighlightMode>(store.documentSpeechHighlightMode);
   const [repoUrl, setRepoUrl] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState<DocumentSpeechActiveState | null>(null);
+  const [playbackState, setPlaybackState] = useState<DocumentSpeechPlayerState>({
+    currentBlockId: null,
+    isPausedForVisual: false,
+    isPlaying: false,
+    isPreparing: false,
+  });
+  const speechRef = useRef<DocumentSpeechHandle>(null);
+  const isOwner = workspace.document.isOwner === true;
+  const isImported = workspace.document.isImported === true;
+  const viewerCanEdit = isOwner || isImported;
+  const isSharedPreview = !viewerCanEdit;
 
   const handleCreateStarterDialog = async () => {
     try {
@@ -106,37 +127,88 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
                   {localize('com_ui_document_render_version')}:{' '}
                   {workspace.renderVersion.versionNumber}
                 </span>
+                <span className="inline-flex items-center gap-1">
+                  {workspace.document.sharingVisibility === 'public' ? (
+                    <Globe2 className="h-4 w-4" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
+                  {workspace.document.sharingVisibility === 'public'
+                    ? localize('com_ui_document_public')
+                    : localize('com_ui_document_private')}
+                </span>
+                {isSharedPreview ? (
+                  <span>{localize('com_ui_document_shared_preview')}</span>
+                ) : null}
+                {isImported ? <span>{localize('com_ui_document_imported')}</span> : null}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
-                onClick={() => setDialogOpen(true)}
-              >
-                <BookOpenText className="h-4 w-4" />
-                {localize('com_ui_create_starter_dialog')}
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
-                onClick={() =>
-                  reingestMutation.mutateAsync({
-                    documentId: workspace.document.documentId,
-                  })
-                }
-              >
-                <RotateCcw className="h-4 w-4" />
-                {localize('com_ui_reingest_document')}
-              </button>
+              {viewerCanEdit ? (
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  <BookOpenText className="h-4 w-4" />
+                  {localize('com_ui_create_starter_dialog')}
+                </button>
+              ) : null}
+              {isOwner ? (
+                <>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
+                    onClick={() =>
+                      updateSharingMutation.mutateAsync({
+                        documentId: workspace.document.documentId,
+                        sharingVisibility:
+                          workspace.document.sharingVisibility === 'public' ? 'private' : 'public',
+                      })
+                    }
+                  >
+                    {workspace.document.sharingVisibility === 'public' ? (
+                      <Lock className="h-4 w-4" />
+                    ) : (
+                      <Globe2 className="h-4 w-4" />
+                    )}
+                    {workspace.document.sharingVisibility === 'public'
+                      ? localize('com_ui_document_make_private')
+                      : localize('com_ui_document_make_public')}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
+                    onClick={() =>
+                      reingestMutation.mutateAsync({
+                        documentId: workspace.document.documentId,
+                      })
+                    }
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {localize('com_ui_reingest_document')}
+                  </button>
+                </>
+              ) : null}
+              {isSharedPreview ? (
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary transition hover:bg-surface-hover"
+                  onClick={async () => {
+                    const importedWorkspace = await importMutation.mutateAsync({
+                      documentId: workspace.document.documentId,
+                    });
+                    navigate(`/docs/${importedWorkspace.document.documentId}`);
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  {localize('com_ui_document_import')}
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
-
-        <div className="px-4 pt-4 sm:px-6 lg:px-8">
-          <DocumentSpeech workspace={workspace} onActiveSpeechChange={setActiveSpeech} />
-        </div>
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -144,6 +216,10 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
               workspace={workspace}
               activeSpeech={activeSpeech}
               highlightMode={highlightMode}
+              playbackState={playbackState}
+              onPausePlayback={() => speechRef.current?.pause()}
+              onPlayFromBlock={(blockId) => speechRef.current?.playFromBlock(blockId)}
+              viewerCanEdit={viewerCanEdit}
             />
           </div>
 
@@ -171,6 +247,15 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
               </div>
             </div>
           </aside>
+        </div>
+
+        <div className="border-t border-border-light px-4 py-3 sm:px-6 lg:px-8">
+          <DocumentSpeech
+            ref={speechRef}
+            workspace={workspace}
+            onActiveSpeechChange={setActiveSpeech}
+            onPlaybackStateChange={setPlaybackState}
+          />
         </div>
       </div>
 

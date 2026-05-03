@@ -892,6 +892,12 @@ export function listStudyDocuments(
   return request.get(endpoints.documents(params));
 }
 
+export function listExploreStudyDocuments(
+  params?: t.TExploreStudyDocumentListParams,
+): Promise<t.TStudyDocument[]> {
+  return request.get(endpoints.exploreDocuments(params));
+}
+
 export function createStudyDocument(
   payload: t.TStudyDocumentCreateRequest,
 ): Promise<t.TDocumentWorkspace> {
@@ -902,8 +908,25 @@ export function getStudyDocumentWorkspace(documentId: string): Promise<t.TDocume
   return request.get(endpoints.documentById(documentId));
 }
 
+export function getExploreStudyDocumentWorkspace(
+  documentId: string,
+): Promise<t.TDocumentWorkspace> {
+  return request.get(endpoints.exploreDocumentById(documentId));
+}
+
 export function reingestStudyDocument(documentId: string): Promise<t.TDocumentWorkspace> {
   return request.post(endpoints.documentReingest(documentId), {});
+}
+
+export function importStudyDocument(documentId: string): Promise<t.TDocumentWorkspace> {
+  return request.post(endpoints.documentImport(documentId), {});
+}
+
+export function updateStudyDocumentSharing(
+  payload: t.TStudyDocumentSharingRequest,
+): Promise<t.TStudyDocument> {
+  const { documentId, ...data } = payload;
+  return request.patch(endpoints.documentSharing(documentId), data);
 }
 
 export function createDocumentClarification(

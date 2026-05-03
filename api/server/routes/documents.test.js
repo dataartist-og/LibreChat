@@ -4,17 +4,26 @@ const path = require('path');
 const express = require('express');
 const request = require('supertest');
 
+const mockListStudyDocuments = jest.fn();
+const mockListExploreStudyDocuments = jest.fn();
 const mockCreateStudyDocumentFromFile = jest.fn();
 const mockGetStudyDocumentWorkspace = jest.fn();
+const mockGetExploreStudyDocumentWorkspace = jest.fn();
+const mockImportStudyDocument = jest.fn();
+const mockUpdateStudyDocumentSharing = jest.fn();
 const mockGetDocumentVisualizationRenderPayload = jest.fn();
 const mockGetDocumentSpeechManifest = jest.fn();
 const mockGetDocumentSpeechAudioArtifact = jest.fn();
 const mockGetDocumentSpeechAudioPayload = jest.fn();
 
 jest.mock('@librechat/api', () => ({
-  listStudyDocuments: jest.fn(),
+  listStudyDocuments: (...args) => mockListStudyDocuments(...args),
+  listExploreStudyDocuments: (...args) => mockListExploreStudyDocuments(...args),
   createStudyDocumentFromFile: (...args) => mockCreateStudyDocumentFromFile(...args),
   getStudyDocumentWorkspace: (...args) => mockGetStudyDocumentWorkspace(...args),
+  getExploreStudyDocumentWorkspace: (...args) => mockGetExploreStudyDocumentWorkspace(...args),
+  importStudyDocument: (...args) => mockImportStudyDocument(...args),
+  updateStudyDocumentSharing: (...args) => mockUpdateStudyDocumentSharing(...args),
   reingestStudyDocument: jest.fn(),
   createDocumentClarification: jest.fn(),
   integrateDocumentClarification: jest.fn(),
@@ -47,7 +56,10 @@ jest.mock('~/models', () => ({
   createStudyDocument: jest.fn(),
   listStudyDocuments: jest.fn(),
   getStudyDocument: jest.fn(),
+  getOwnedStudyDocument: jest.fn(),
+  getSharedStudyDocument: jest.fn(),
   getStudyDocumentBySourceFile: jest.fn(),
+  addStudyDocumentToLibrary: jest.fn(),
   updateStudyDocument: jest.fn(),
   createDocumentRenderVersion: jest.fn(),
   listDocumentRenderVersions: jest.fn(),
@@ -134,6 +146,56 @@ describe('documents route', () => {
     expect(response.status).toBe(201);
     expect(response.body.document.documentId).toBe('document-1');
     expect(mockCreateStudyDocumentFromFile).toHaveBeenCalled();
+  });
+
+  it('returns the shared explore document list', async () => {
+    mockListExploreStudyDocuments.mockResolvedValue([
+      {
+        documentId: 'document-2',
+        title: 'Shared Notes',
+      },
+    ]);
+
+    const response = await request(app).get('/api/documents/explore');
+
+    expect(response.status).toBe(200);
+    expect(response.body[0].documentId).toBe('document-2');
+    expect(mockListExploreStudyDocuments).toHaveBeenCalled();
+  });
+
+  it('imports a shared document into the current user library', async () => {
+    mockImportStudyDocument.mockResolvedValue({
+      document: {
+        documentId: 'document-2',
+      },
+      renderVersion: {
+        renderVersionId: 'render-2',
+      },
+      overlay: null,
+      clarifications: [],
+      visualizations: [],
+    });
+
+    const response = await request(app).post('/api/documents/document-2/import').send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.document.documentId).toBe('document-2');
+    expect(mockImportStudyDocument).toHaveBeenCalled();
+  });
+
+  it('updates document sharing visibility', async () => {
+    mockUpdateStudyDocumentSharing.mockResolvedValue({
+      documentId: 'document-1',
+      sharingVisibility: 'private',
+    });
+
+    const response = await request(app)
+      .patch('/api/documents/document-1/sharing')
+      .send({ sharingVisibility: 'private' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.sharingVisibility).toBe('private');
+    expect(mockUpdateStudyDocumentSharing).toHaveBeenCalled();
   });
 
   it('returns a document speech manifest', async () => {

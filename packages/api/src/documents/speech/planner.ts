@@ -76,6 +76,7 @@ type SentenceChunk = {
 
 type BuildPlanInput = {
   document: IStudyDocument;
+  pauseOnFigures: boolean;
   renderVersion: IDocumentRenderVersion;
   narrationModel: string;
   runNarrationModel: NarrationRunner;
@@ -618,6 +619,7 @@ function buildFigureSegments(
   document: IStudyDocument,
   renderVersion: IDocumentRenderVersion,
   block: IDocumentBlock,
+  pauseOnFigures: boolean,
 ): SegmentDraft[] {
   const caption = resolveBlockText(block);
   const annotation = getAssetAnnotation(renderVersion, block.assetId);
@@ -627,21 +629,46 @@ function buildFigureSegments(
       .join(' ') || 'A figure is shown in the document.',
   );
 
+  const figureSummary: SegmentDraft = {
+    documentId: document.documentId,
+    renderVersionId: '',
+    blockId: block.blockId,
+    charStart: 0,
+    charEnd: caption.length,
+    segmentKind: 'figure_summary',
+    sourceText: caption,
+    sourceContextBefore: '',
+    sourceContextAfter: '',
+    spokenText: pauseOnFigures
+      ? normalizeWhitespace(`${spokenText} Please inspect the figure in the document.`)
+      : spokenText,
+    playbackDirective: 'continue',
+    focusBlockId: null,
+    resumeToken: null,
+    warnings: [],
+    narrationModel: null,
+  };
+
+  if (!pauseOnFigures) {
+    return [figureSummary];
+  }
+
   return [
+    figureSummary,
     {
       documentId: document.documentId,
       renderVersionId: '',
       blockId: block.blockId,
       charStart: 0,
       charEnd: caption.length,
-      segmentKind: 'figure_summary',
+      segmentKind: 'pause_for_visual',
       sourceText: caption,
       sourceContextBefore: '',
       sourceContextAfter: '',
-      spokenText,
-      playbackDirective: 'continue',
-      focusBlockId: null,
-      resumeToken: null,
+      spokenText: '',
+      playbackDirective: 'pause_for_visual',
+      focusBlockId: block.blockId,
+      resumeToken: hashValue(`${block.blockId}:figure:${NARRATION_POLICY_VERSION}`),
       warnings: [],
       narrationModel: null,
     },
@@ -871,6 +898,7 @@ async function segmentBlock(
   blocks: IDocumentBlock[],
   blockIndex: number,
   headingPaths: Map<string, string[]>,
+  pauseOnFigures: boolean,
   narrationModel: string,
   runNarrationModel: NarrationRunner,
 ): Promise<SegmentDraft[]> {
@@ -886,7 +914,7 @@ async function segmentBlock(
   }
 
   if (block.type === 'figure') {
-    return buildFigureSegments(document, renderVersion, block);
+    return buildFigureSegments(document, renderVersion, block, pauseOnFigures);
   }
 
   if (block.type === 'math_block') {
@@ -929,6 +957,7 @@ export async function buildDocumentSpeechPlan(
   const speechSurfaceFingerprint = hashValue(
     JSON.stringify({
       version: NARRATION_POLICY_VERSION,
+      pauseOnFigures: input.pauseOnFigures,
       renderVersionId: input.renderVersion.renderVersionId,
       blocks: sourceBlocksJson,
     }),
@@ -942,6 +971,7 @@ export async function buildDocumentSpeechPlan(
         blocks,
         blockIndex,
         headingPaths,
+        input.pauseOnFigures,
         input.narrationModel,
         input.runNarrationModel,
       ),

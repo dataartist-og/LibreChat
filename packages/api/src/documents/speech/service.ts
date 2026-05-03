@@ -28,6 +28,7 @@ import { getDocumentSpeechFileExtension, persistDocumentSpeechAudio } from './st
 type DocumentSpeechManifestPayload = {
   renderVersionId: string;
   startBlockId?: string | null;
+  pauseOnFigures?: boolean | null;
   profile?: Partial<IDocumentSpeechProfile>;
 };
 
@@ -36,7 +37,31 @@ type DocumentSpeechAudioPayload = {
   profile?: Partial<IDocumentSpeechProfile>;
 };
 
-type DocumentSpeechManifestSegment = IDocumentSpeechSegment & {
+type SpeechSegmentState = Pick<
+  IDocumentSpeechSegment,
+  | 'segmentId'
+  | 'planId'
+  | 'documentId'
+  | 'renderVersionId'
+  | 'blockId'
+  | 'charStart'
+  | 'charEnd'
+  | 'segmentIndex'
+  | 'segmentKind'
+  | 'sourceText'
+  | 'sourceContextBefore'
+  | 'sourceContextAfter'
+  | 'sourceFingerprint'
+  | 'spokenText'
+  | 'spokenFingerprint'
+  | 'playbackDirective'
+  | 'focusBlockId'
+  | 'resumeToken'
+  | 'warnings'
+  | 'narrationModel'
+>;
+
+type DocumentSpeechManifestSegment = SpeechSegmentState & {
   audio: {
     audioArtifactId: string;
     segmentId: string;
@@ -118,6 +143,7 @@ const DEFAULT_DOCUMENT_TTS_MODEL = 'gpt-4o-mini';
 
 export interface DocumentSpeechServiceDeps {
   getStudyDocument: AllMethods['getStudyDocument'];
+  getSharedStudyDocument: AllMethods['getSharedStudyDocument'];
   getDocumentRenderVersion: AllMethods['getDocumentRenderVersion'];
   getDocumentSpeechPlan: AllMethods['getDocumentSpeechPlan'];
   upsertDocumentSpeechPlan: AllMethods['upsertDocumentSpeechPlan'];
@@ -280,8 +306,8 @@ function buildAudioCacheKey(spokenFingerprint: string, profile: IDocumentSpeechP
   );
 }
 
-function buildAudioArtifactId(audioCacheKey: string): string {
-  return hashValue(`document_speech_audio:${audioCacheKey}`);
+function buildAudioArtifactId(documentId: string, audioCacheKey: string): string {
+  return hashValue(`document_speech_audio:${documentId}:${audioCacheKey}`);
 }
 
 function buildAudioUrl(documentId: string, audioArtifactId: string): string {
@@ -303,13 +329,13 @@ async function fileExists(filePath: string | undefined | null): Promise<boolean>
 
 function toManifestAudioState(
   documentId: string,
-  segment: IDocumentSpeechSegment,
+  segment: SpeechSegmentState,
   profile: IDocumentSpeechProfile,
   artifact?: IDocumentSpeechAudioArtifact | null,
 ) {
   if (segment.playbackDirective === 'pause_for_visual') {
     return {
-      audioArtifactId: buildAudioArtifactId(`not_required:${segment.segmentId}`),
+      audioArtifactId: buildAudioArtifactId(documentId, `not_required:${segment.segmentId}`),
       segmentId: segment.segmentId,
       documentId,
       renderVersionId: segment.renderVersionId,
@@ -327,7 +353,10 @@ function toManifestAudioState(
 
   if (!artifact) {
     return {
-      audioArtifactId: buildAudioArtifactId(`${segment.segmentId}:${segment.spokenFingerprint}`),
+      audioArtifactId: buildAudioArtifactId(
+        documentId,
+        `${segment.segmentId}:${segment.spokenFingerprint}`,
+      ),
       segmentId: segment.segmentId,
       documentId,
       renderVersionId: segment.renderVersionId,
@@ -371,10 +400,10 @@ async function ensureDocumentAndRenderVersion(
   documentId: string,
   renderVersionId: string,
 ): Promise<{ document: IStudyDocument; renderVersion: IDocumentRenderVersion }> {
-  const [document, renderVersion] = await Promise.all([
-    deps.getStudyDocument(userId, documentId),
-    deps.getDocumentRenderVersion(userId, renderVersionId),
-  ]);
+  const renderVersionPromise = deps.getDocumentRenderVersion(userId, renderVersionId);
+  const document =
+    (await deps.getStudyDocument(userId, documentId)) ?? (await deps.getSharedStudyDocument(documentId));
+  const renderVersion = await renderVersionPromise;
 
   if (!document) {
     throw new Error('Document not found');
@@ -395,6 +424,7 @@ async function loadOrCreatePlan(
   userId: string,
   document: IStudyDocument,
   renderVersion: IDocumentRenderVersion,
+  options?: { pauseOnFigures?: boolean | null },
 ): Promise<Awaited<ReturnType<typeof buildDocumentSpeechPlan>>> {
   const narrationClient = getOpenAIClient();
   const narrationModel = await resolveNarrationModel(
@@ -417,6 +447,7 @@ async function loadOrCreatePlan(
 
   const builtPlan = await buildDocumentSpeechPlan({
     document,
+    pauseOnFigures: options?.pauseOnFigures === true,
     renderVersion,
     narrationModel,
     runNarrationModel,
@@ -437,8 +468,26 @@ async function loadOrCreatePlan(
       ...builtPlan,
       planId: existingPlan.planId,
       segments: existingSegments.map((segment: IDocumentSpeechSegment) => ({
-        ...segment,
+        segmentId: segment.segmentId,
         planId: existingPlan.planId,
+        documentId: segment.documentId,
+        renderVersionId: segment.renderVersionId,
+        blockId: segment.blockId,
+        charStart: segment.charStart ?? null,
+        charEnd: segment.charEnd ?? null,
+        segmentIndex: segment.segmentIndex,
+        segmentKind: segment.segmentKind,
+        sourceText: segment.sourceText,
+        sourceContextBefore: segment.sourceContextBefore,
+        sourceContextAfter: segment.sourceContextAfter,
+        sourceFingerprint: segment.sourceFingerprint,
+        spokenText: segment.spokenText,
+        spokenFingerprint: segment.spokenFingerprint,
+        playbackDirective: segment.playbackDirective,
+        focusBlockId: segment.focusBlockId ?? null,
+        resumeToken: segment.resumeToken ?? null,
+        warnings: segment.warnings ?? [],
+        narrationModel: segment.narrationModel ?? null,
       })),
     };
   }
@@ -487,7 +536,7 @@ async function loadOrCreatePlan(
 }
 
 function resolveStartSegmentId(
-  segments: IDocumentSpeechSegment[],
+  segments: SpeechSegmentState[],
   startBlockId?: string | null,
 ): string | null {
   if (segments.length === 0) {
@@ -507,7 +556,7 @@ function resolveStartSegmentId(
 }
 
 function resolveNextPrefetchSegmentIds(
-  segments: IDocumentSpeechSegment[],
+  segments: SpeechSegmentState[],
   startSegmentId: string | null,
 ): string[] {
   if (!startSegmentId) {
@@ -695,7 +744,9 @@ export async function getOrCreateDocumentSpeechManifest(
     documentId,
     payload.renderVersionId,
   );
-  const plan = await loadOrCreatePlan(deps, userId, document, renderVersion);
+  const plan = await loadOrCreatePlan(deps, userId, document, renderVersion, {
+    pauseOnFigures: payload.pauseOnFigures,
+  });
   const profile = resolveSpeechProfile(options?.appConfig, payload.profile);
   const audioCacheKeys = plan.segments.map((segment) => buildAudioCacheKey(segment.spokenFingerprint, profile));
   const audioArtifacts = await deps.listDocumentSpeechAudioArtifacts(userId, {
@@ -753,16 +804,19 @@ export async function getOrCreateDocumentSpeechAudioArtifact(
   }
 
   const audioCacheKey = buildAudioCacheKey(segment.spokenFingerprint, profile);
-  const existingArtifact = await deps.getDocumentSpeechAudioArtifact(userId, { audioCacheKey });
+  const existingArtifact = await deps.getDocumentSpeechAudioArtifact(userId, {
+    audioCacheKey,
+    documentId,
+  });
 
   if (existingArtifact?.status === 'ready' && existingArtifact.fileId) {
-    const existingFile = await deps.findFileById(existingArtifact.fileId, { user: userId });
+    const existingFile = await deps.findFileById(existingArtifact.fileId);
     if (existingFile?.filepath && (await fileExists(existingFile.filepath))) {
       return serializeArtifactResponse(documentId, existingArtifact);
     }
   }
 
-  const audioArtifactId = buildAudioArtifactId(audioCacheKey);
+  const audioArtifactId = buildAudioArtifactId(documentId, audioCacheKey);
   await deps.upsertDocumentSpeechAudioArtifact(userId, {
     audioArtifactId,
     segmentId: segment.segmentId,
@@ -860,7 +914,7 @@ export async function getDocumentSpeechAudioPayload(
     throw new Error('Document speech audio not found');
   }
 
-  const file = await deps.findFileById(artifact.fileId, { user: userId });
+  const file = await deps.findFileById(artifact.fileId);
   if (!file?.filepath || !(await fileExists(file.filepath))) {
     throw new Error('Document speech audio not found');
   }

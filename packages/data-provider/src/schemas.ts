@@ -1020,6 +1020,8 @@ export const documentIngestionStrategySchema = z.enum([
   'plain_text',
 ]);
 
+export const documentSharingVisibilitySchema = z.enum(['public', 'private']);
+
 export const documentBlockTypeSchema = z.enum([
   'heading',
   'paragraph',
@@ -1294,7 +1296,10 @@ export const tStudyDocumentSchema = z.object({
   ingestionStrategy: documentIngestionStrategySchema,
   activeRenderVersionId: z.string().nullable().optional(),
   activeOverlayId: z.string().nullable().optional(),
+  sharingVisibility: documentSharingVisibilitySchema,
   createdByUserId: z.string(),
+  isOwner: z.boolean().optional(),
+  isImported: z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

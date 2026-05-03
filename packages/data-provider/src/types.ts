@@ -338,6 +338,10 @@ export type TStudyDocumentListParams = {
   projectId?: string | null;
 };
 
+export type TExploreStudyDocumentListParams = {
+  projectId?: string | null;
+};
+
 export type TStudyDocumentCreateRequest = {
   sourceFileId: string;
   projectId?: string | null;
@@ -346,6 +350,15 @@ export type TStudyDocumentCreateRequest = {
 
 export type TStudyDocumentReingestRequest = {
   documentId: string;
+};
+
+export type TStudyDocumentImportRequest = {
+  documentId: string;
+};
+
+export type TStudyDocumentSharingRequest = {
+  documentId: string;
+  sharingVisibility: 'public' | 'private';
 };
 
 export type TLearnerWorkspaceRequest = void;
@@ -462,6 +475,7 @@ export type TDocumentSpeechManifestRequest = {
   documentId: string;
   renderVersionId: string;
   startBlockId?: string | null;
+  pauseOnFigures?: boolean | null;
   profile?: TDocumentSpeechProfileInput;
 };
 

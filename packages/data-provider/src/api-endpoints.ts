@@ -191,10 +191,20 @@ export const learnerProfile = () => `${learnersRoot}/me`;
 export const documents = (params?: { projectId?: string | null }) =>
   `${documentsRoot}${buildQuery(params ?? {})}`;
 
+export const exploreDocuments = (params?: { projectId?: string | null }) =>
+  `${documentsRoot}/explore${buildQuery(params ?? {})}`;
+
 export const documentById = (documentId: string) =>
   `${documentsRoot}/${encodeURIComponent(documentId)}`;
 
+export const exploreDocumentById = (documentId: string) =>
+  `${documentsRoot}/explore/${encodeURIComponent(documentId)}`;
+
 export const documentReingest = (documentId: string) => `${documentById(documentId)}/reingest`;
+
+export const documentImport = (documentId: string) => `${documentById(documentId)}/import`;
+
+export const documentSharing = (documentId: string) => `${documentById(documentId)}/sharing`;
 
 export const documentClarifications = (documentId: string) =>
   `${documentById(documentId)}/clarifications`;

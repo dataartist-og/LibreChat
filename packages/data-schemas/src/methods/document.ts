@@ -36,6 +36,8 @@ type StudyDocumentCreate = {
   ingestionStrategy: IStudyDocument['ingestionStrategy'];
   activeRenderVersionId?: string | null;
   activeOverlayId?: string | null;
+  sharingVisibility?: IStudyDocument['sharingVisibility'];
+  libraryUserIds?: string[];
 };
 
 type StudyDocumentUpdate = Partial<
@@ -49,6 +51,8 @@ type StudyDocumentUpdate = Partial<
     | 'ingestionStrategy'
     | 'activeRenderVersionId'
     | 'activeOverlayId'
+    | 'sharingVisibility'
+    | 'libraryUserIds'
   >
 >;
 
@@ -216,11 +220,18 @@ export interface DocumentMethods {
     userId: string,
     params?: { projectId?: string | null },
   ): Promise<IStudyDocument[]>;
+  listExploreStudyDocuments(
+    userId: string,
+    params?: { projectId?: string | null },
+  ): Promise<IStudyDocument[]>;
   getStudyDocument(userId: string, documentId: string): Promise<IStudyDocument | null>;
+  getOwnedStudyDocument(userId: string, documentId: string): Promise<IStudyDocument | null>;
+  getSharedStudyDocument(documentId: string): Promise<IStudyDocument | null>;
   getStudyDocumentBySourceFile(
     userId: string,
     sourceFileId: string,
   ): Promise<IStudyDocument | null>;
+  addStudyDocumentToLibrary(userId: string, documentId: string): Promise<IStudyDocument | null>;
   updateStudyDocument(
     userId: string,
     documentId: string,
@@ -343,7 +354,12 @@ export interface DocumentMethods {
   ): Promise<IDocumentSpeechAudioArtifact[]>;
   getDocumentSpeechAudioArtifact(
     userId: string,
-    params: { audioArtifactId?: string; audioCacheKey?: string; segmentId?: string },
+    params: {
+      audioArtifactId?: string;
+      audioCacheKey?: string;
+      documentId?: string;
+      segmentId?: string;
+    },
   ): Promise<IDocumentSpeechAudioArtifact | null>;
 }
 
@@ -354,6 +370,9 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       const document = await StudyDocument.create({
         documentId: crypto.randomUUID(),
         ...data,
+        sharingVisibility: data.sharingVisibility ?? 'public',
+        libraryUserIds:
+          data.libraryUserIds && data.libraryUserIds.length > 0 ? data.libraryUserIds : [userId],
         createdByUserId: userId,
       });
 
@@ -368,7 +387,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     try {
       const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
       return await StudyDocument.find({
-        createdByUserId: userId,
+        libraryUserIds: userId,
         ...(params?.projectId ? { projectId: params.projectId } : {}),
       })
         .sort({ updatedAt: -1, createdAt: -1 })
@@ -379,7 +398,36 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
+  async function listExploreStudyDocuments(userId: string, params?: { projectId?: string | null }) {
+    try {
+      const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
+      return await StudyDocument.find({
+        createdByUserId: { $ne: userId },
+        sharingVisibility: 'public',
+        ...(params?.projectId ? { projectId: params.projectId } : {}),
+      })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean();
+    } catch (error) {
+      logger.error('[listExploreStudyDocuments] Error listing shared study documents', error);
+      throw new Error('Error listing shared study documents');
+    }
+  }
+
   async function getStudyDocument(userId: string, documentId: string) {
+    try {
+      const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
+      return await StudyDocument.findOne({
+        documentId,
+        libraryUserIds: userId,
+      }).lean();
+    } catch (error) {
+      logger.error('[getStudyDocument] Error getting study document', error);
+      throw new Error('Error getting study document');
+    }
+  }
+
+  async function getOwnedStudyDocument(userId: string, documentId: string) {
     try {
       const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
       return await StudyDocument.findOne({
@@ -387,8 +435,21 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
         createdByUserId: userId,
       }).lean();
     } catch (error) {
-      logger.error('[getStudyDocument] Error getting study document', error);
-      throw new Error('Error getting study document');
+      logger.error('[getOwnedStudyDocument] Error getting owned study document', error);
+      throw new Error('Error getting owned study document');
+    }
+  }
+
+  async function getSharedStudyDocument(documentId: string) {
+    try {
+      const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
+      return await StudyDocument.findOne({
+        documentId,
+        sharingVisibility: 'public',
+      }).lean();
+    } catch (error) {
+      logger.error('[getSharedStudyDocument] Error getting shared study document', error);
+      throw new Error('Error getting shared study document');
     }
   }
 
@@ -397,7 +458,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
       return await StudyDocument.findOne({
         sourceFileId,
-        createdByUserId: userId,
+        libraryUserIds: userId,
       }).lean();
     } catch (error) {
       logger.error('[getStudyDocumentBySourceFile] Error getting study document', error);
@@ -405,8 +466,30 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
+  async function addStudyDocumentToLibrary(userId: string, documentId: string) {
+    try {
+      const StudyDocument = mongoose.models.StudyDocument as Model<IStudyDocument>;
+      return await StudyDocument.findOneAndUpdate(
+        {
+          documentId,
+        },
+        {
+          $addToSet: {
+            libraryUserIds: userId,
+          },
+        },
+        {
+          new: true,
+        },
+      ).lean();
+    } catch (error) {
+      logger.error('[addStudyDocumentToLibrary] Error importing study document', error);
+      throw error;
+    }
+  }
+
   async function updateStudyDocument(
-    userId: string,
+    _userId: string,
     documentId: string,
     data: StudyDocumentUpdate,
   ) {
@@ -415,7 +498,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       return await StudyDocument.findOneAndUpdate(
         {
           documentId,
-          createdByUserId: userId,
         },
         {
           $set: data,
@@ -447,13 +529,12 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
-  async function listDocumentRenderVersions(userId: string, documentId: string) {
+  async function listDocumentRenderVersions(_userId: string, documentId: string) {
     try {
       const DocumentRenderVersion = mongoose.models
         .DocumentRenderVersion as Model<IDocumentRenderVersion>;
       return await DocumentRenderVersion.find({
         documentId,
-        createdByUserId: userId,
       })
         .sort({ versionNumber: -1, createdAt: -1 })
         .lean();
@@ -463,13 +544,12 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
-  async function getDocumentRenderVersion(userId: string, renderVersionId: string) {
+  async function getDocumentRenderVersion(_userId: string, renderVersionId: string) {
     try {
       const DocumentRenderVersion = mongoose.models
         .DocumentRenderVersion as Model<IDocumentRenderVersion>;
       return await DocumentRenderVersion.findOne({
         renderVersionId,
-        createdByUserId: userId,
       }).lean();
     } catch (error) {
       logger.error('[getDocumentRenderVersion] Error getting document render version', error);
@@ -477,13 +557,12 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
-  async function getActiveDocumentRenderVersion(userId: string, documentId: string) {
+  async function getActiveDocumentRenderVersion(_userId: string, documentId: string) {
     try {
       const DocumentRenderVersion = mongoose.models
         .DocumentRenderVersion as Model<IDocumentRenderVersion>;
       return await DocumentRenderVersion.findOne({
         documentId,
-        createdByUserId: userId,
         isActive: true,
       })
         .sort({ versionNumber: -1 })
@@ -495,7 +574,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function updateDocumentRenderVersion(
-    userId: string,
+    _userId: string,
     renderVersionId: string,
     data: DocumentRenderVersionUpdate,
   ) {
@@ -505,7 +584,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       return await DocumentRenderVersion.findOneAndUpdate(
         {
           renderVersionId,
-          createdByUserId: userId,
         },
         {
           $set: data,
@@ -521,7 +599,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function setActiveDocumentRenderVersion(
-    userId: string,
+    _userId: string,
     documentId: string,
     renderVersionId: string,
   ) {
@@ -531,7 +609,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       await DocumentRenderVersion.updateMany(
         {
           documentId,
-          createdByUserId: userId,
         },
         {
           $set: { isActive: false },
@@ -542,7 +619,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
         {
           renderVersionId,
           documentId,
-          createdByUserId: userId,
         },
         {
           $set: { isActive: true },
@@ -897,7 +973,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       const plan = await DocumentSpeechPlan.findOneAndUpdate(
         {
           planId: data.planId,
-          createdByUserId: userId,
         },
         {
           $set: data,
@@ -923,7 +998,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function getDocumentSpeechPlan(
-    userId: string,
+    _userId: string,
     params:
       | { planId: string }
       | {
@@ -936,7 +1011,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     try {
       const DocumentSpeechPlan = mongoose.models.DocumentSpeechPlan as Model<IDocumentSpeechPlan>;
       return await DocumentSpeechPlan.findOne({
-        createdByUserId: userId,
         ...params,
       }).lean();
     } catch (error) {
@@ -962,7 +1036,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
           updateOne: {
             filter: {
               segmentId: segment.segmentId,
-              createdByUserId: userId,
             },
             update: {
               $set: segment,
@@ -976,7 +1049,6 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       );
 
       return await DocumentSpeechSegment.find({
-        createdByUserId: userId,
         segmentId: {
           $in: data.map((segment) => segment.segmentId),
         },
@@ -990,14 +1062,13 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function listDocumentSpeechSegments(
-    userId: string,
+    _userId: string,
     params: { planId?: string; documentId?: string; renderVersionId?: string; blockId?: string },
   ) {
     try {
       const DocumentSpeechSegment = mongoose.models
         .DocumentSpeechSegment as Model<IDocumentSpeechSegment>;
       return await DocumentSpeechSegment.find({
-        createdByUserId: userId,
         ...(params.planId ? { planId: params.planId } : {}),
         ...(params.documentId ? { documentId: params.documentId } : {}),
         ...(params.renderVersionId ? { renderVersionId: params.renderVersionId } : {}),
@@ -1011,13 +1082,12 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
     }
   }
 
-  async function getDocumentSpeechSegment(userId: string, segmentId: string) {
+  async function getDocumentSpeechSegment(_userId: string, segmentId: string) {
     try {
       const DocumentSpeechSegment = mongoose.models
         .DocumentSpeechSegment as Model<IDocumentSpeechSegment>;
       return await DocumentSpeechSegment.findOne({
         segmentId,
-        createdByUserId: userId,
       }).lean();
     } catch (error) {
       logger.error('[getDocumentSpeechSegment] Error getting document speech segment', error);
@@ -1036,7 +1106,7 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
       const artifact = await DocumentSpeechAudioArtifact.findOneAndUpdate(
         {
           audioCacheKey: data.audioCacheKey,
-          createdByUserId: userId,
+          documentId: data.documentId,
         },
         {
           $set: updateData,
@@ -1066,14 +1136,13 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function listDocumentSpeechAudioArtifacts(
-    userId: string,
+    _userId: string,
     params: { segmentIds?: string[]; audioCacheKeys?: string[]; documentId?: string },
   ) {
     try {
       const DocumentSpeechAudioArtifact = mongoose.models
         .DocumentSpeechAudioArtifact as Model<IDocumentSpeechAudioArtifact>;
       return await DocumentSpeechAudioArtifact.find({
-        createdByUserId: userId,
         ...(params.segmentIds?.length ? { segmentId: { $in: params.segmentIds } } : {}),
         ...(params.audioCacheKeys?.length ? { audioCacheKey: { $in: params.audioCacheKeys } } : {}),
         ...(params.documentId ? { documentId: params.documentId } : {}),
@@ -1090,16 +1159,21 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   }
 
   async function getDocumentSpeechAudioArtifact(
-    userId: string,
-    params: { audioArtifactId?: string; audioCacheKey?: string; segmentId?: string },
+    _userId: string,
+    params: {
+      audioArtifactId?: string;
+      audioCacheKey?: string;
+      documentId?: string;
+      segmentId?: string;
+    },
   ) {
     try {
       const DocumentSpeechAudioArtifact = mongoose.models
         .DocumentSpeechAudioArtifact as Model<IDocumentSpeechAudioArtifact>;
       return await DocumentSpeechAudioArtifact.findOne({
-        createdByUserId: userId,
         ...(params.audioArtifactId ? { audioArtifactId: params.audioArtifactId } : {}),
         ...(params.audioCacheKey ? { audioCacheKey: params.audioCacheKey } : {}),
+        ...(params.documentId ? { documentId: params.documentId } : {}),
         ...(params.segmentId ? { segmentId: params.segmentId } : {}),
       })
         .sort({ createdAt: -1 })
@@ -1116,8 +1190,12 @@ export function createDocumentMethods(mongoose: typeof import('mongoose')): Docu
   return {
     createStudyDocument,
     listStudyDocuments,
+    listExploreStudyDocuments,
     getStudyDocument,
+    getOwnedStudyDocument,
+    getSharedStudyDocument,
     getStudyDocumentBySourceFile,
+    addStudyDocumentToLibrary,
     updateStudyDocument,
     createDocumentRenderVersion,
     listDocumentRenderVersions,

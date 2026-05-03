@@ -52,6 +52,7 @@ type DocumentAsset = {
   assetId: string;
   assetType: 'image';
   source: 'ocr_page_image';
+  ocrImageId: string;
   pageNumber: number;
   imageIndex: number;
   mimeType: string;
@@ -86,6 +87,8 @@ const compactSectionHeadingMaxLength = 140;
 const figureCaptionPattern =
   /^(?:\([a-z]\)\s*\n\s*)*(?:Figure|Fig\.)\s+\d+[A-Za-z]?(?::|\.)\s+/i;
 const tableCaptionPattern = /^Table\s+\d+[A-Za-z]?(?::|\.)\s+/i;
+const subfigureCaptionPattern = /^\([a-z]\)\s+\S/i;
+const imagePlaceholderPattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const htmlEntityPattern = /&(nbsp|lt|gt|amp|quot|#39|#x27);/gi;
 const mathCommandPattern =
   /\\(?:forall|exists|sum|prod|frac|hat|tilde|bar|vec|overline|underline|sqrt|text|mathrm|mathbb|mathbf|mathcal|operatorname|left|right|cdot|times|leq|geq|neq|approx|sim|to|mapsto|rightarrow|leftarrow|in|notin|subset|subseteq|supset|cup|cap|mid|int|iint|oint|partial|nabla|alpha|beta|gamma|delta|epsilon|varepsilon|theta|lambda|mu|nu|pi|rho|sigma|tau|phi|varphi|psi|omega)\b/;
@@ -497,6 +500,20 @@ function isTableCaptionBlock(block: IDocumentBlock): boolean {
   return block.type === 'paragraph' && tableCaptionPattern.test(block.plainText.trim());
 }
 
+function isFigureCaptionText(value: string): boolean {
+  const trimmed = value.trim();
+  return figureCaptionPattern.test(trimmed) || subfigureCaptionPattern.test(trimmed);
+}
+
+function extractImagePlaceholderTargets(value: string): string[] {
+  const matches = value.matchAll(imagePlaceholderPattern);
+  return Array.from(matches, (match) => match[2]?.trim()).filter(Boolean);
+}
+
+function stripImagePlaceholders(value: string): string {
+  return value.replace(imagePlaceholderPattern, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function withUpdatedContent(
   block: IDocumentBlock,
   type: IDocumentBlock['type'],
@@ -554,6 +571,49 @@ function mergeTableCaptions(blocks: IDocumentBlock[]): IDocumentBlock[] {
   return merged;
 }
 
+function inferImageMimeType(imageId?: string | null): string {
+  const normalized = (imageId ?? '').trim().toLowerCase();
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (normalized.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (normalized.endsWith('.gif')) {
+    return 'image/gif';
+  }
+
+  return 'image/png';
+}
+
+function mergeTrailingFigureCaptions(blocks: IDocumentBlock[]): IDocumentBlock[] {
+  const merged: IDocumentBlock[] = [];
+
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const previous = merged[merged.length - 1];
+
+    if (isFigureCaptionBlock(block) && previous?.type === 'figure' && samePage(previous, block)) {
+      const previousContent = previous.contentMarkdown.trim();
+      const nextContent = previousContent
+        ? `${previousContent}\n\n${block.contentMarkdown}`
+        : block.contentMarkdown;
+
+      merged[merged.length - 1] = withUpdatedContent(
+        previous,
+        'figure',
+        nextContent,
+        previous.assetId,
+      );
+      continue;
+    }
+
+    merged.push(block);
+  }
+
+  return merged;
+}
+
 function buildFigureAssets(ocrPages?: OCRPageAssetPage[]): DocumentAsset[] {
   if (!ocrPages?.length) {
     return [];
@@ -573,9 +633,10 @@ function buildFigureAssets(ocrPages?: OCRPageAssetPage[]): DocumentAsset[] {
         assetId: `ocr-figure-${page.index + 1}-${imageIndex + 1}-${image.id || 'image'}`,
         assetType: 'image' as const,
         source: 'ocr_page_image' as const,
+        ocrImageId: image.id,
         pageNumber: page.index + 1,
         imageIndex: imageIndex + 1,
-        mimeType: 'image/png',
+        mimeType: inferImageMimeType(image.id),
         annotation: image.imageAnnotation ?? null,
         reusable: Boolean(image.reusable),
         bounds: {
@@ -607,6 +668,19 @@ function takePageAsset(pageAssets: DocumentAsset[]): DocumentAsset | null {
   }
 
   return pageAssets.find((asset) => asset.reusable) ?? null;
+}
+
+function takePageAssetByPlaceholderId(
+  pageAssets: DocumentAsset[],
+  placeholderId: string,
+): DocumentAsset | null {
+  const assetIndex = pageAssets.findIndex((asset) => asset.ocrImageId === placeholderId);
+  if (assetIndex < 0) {
+    return null;
+  }
+
+  const [asset] = pageAssets.splice(assetIndex, 1);
+  return asset ?? null;
 }
 
 function looksLikeStandaloneMathLine(value: string): boolean {
@@ -699,12 +773,52 @@ function attachFigureAssets(
     }
   };
 
-  blocks.forEach((block) => {
-    const blockPage = block.sourcePageStart ?? block.sourcePageEnd ?? currentPage;
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const blockPage: number | null = block.sourcePageStart ?? block.sourcePageEnd ?? currentPage;
     if (currentPage != null && blockPage != null && blockPage !== currentPage) {
       flushRemainingAssets(currentPage);
     }
     currentPage = blockPage ?? currentPage;
+
+    const placeholderTargets =
+      blockPage != null ? extractImagePlaceholderTargets(block.contentMarkdown) : [];
+    if (blockPage != null && placeholderTargets.length > 0) {
+      const pageAssets = assetsByPage.get(blockPage) ?? [];
+
+      if (placeholderTargets.length === 1) {
+        const asset = takePageAssetByPlaceholderId(pageAssets, placeholderTargets[0]);
+        if (asset) {
+          let captionMarkdown = stripImagePlaceholders(block.contentMarkdown);
+          const nextBlock = blocks[index + 1];
+
+          if (
+            !captionMarkdown &&
+            nextBlock?.type === 'paragraph' &&
+            samePage(block, nextBlock) &&
+            extractImagePlaceholderTargets(nextBlock.contentMarkdown).length === 0 &&
+            isFigureCaptionText(nextBlock.plainText)
+          ) {
+            captionMarkdown = nextBlock.contentMarkdown;
+            index += 1;
+          }
+
+          result.push(
+            withUpdatedContent(
+              block,
+              'figure',
+              captionMarkdown || italicizeCaption(buildFallbackFigureCaption(asset)),
+              asset.assetId,
+            ),
+          );
+          continue;
+        }
+      }
+
+      placeholderTargets.forEach((placeholderId) => {
+        takePageAssetByPlaceholderId(pageAssets, placeholderId);
+      });
+    }
 
     if (isFigureCaptionBlock(block) && blockPage != null) {
       const pageAssets = assetsByPage.get(blockPage) ?? [];
@@ -713,7 +827,7 @@ function attachFigureAssets(
         result.push(
           withUpdatedContent(block, 'figure', italicizeCaption(block.contentMarkdown), asset.assetId),
         );
-        return;
+        continue;
       }
     }
 
@@ -722,17 +836,17 @@ function attachFigureAssets(
       const asset = takePageAsset(pageAssets);
       if (asset) {
         result.push(withUpdatedContent(block, 'figure', block.contentMarkdown, asset.assetId));
-        return;
+        continue;
       }
     }
 
     result.push(block);
-  });
+  }
 
   flushRemainingAssets(currentPage);
 
   return {
-    blocks: result,
+    blocks: mergeTrailingFigureCaptions(result),
     assets,
   };
 }

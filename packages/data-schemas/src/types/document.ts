@@ -18,6 +18,8 @@ export type DocumentIngestionStrategy =
   | 'text_direct'
   | 'plain_text';
 
+export type DocumentSharingVisibility = 'public' | 'private';
+
 export type DocumentBlockType =
   | 'heading'
   | 'paragraph'
@@ -129,7 +131,11 @@ export interface IStudyDocument extends Document {
   ingestionStrategy: DocumentIngestionStrategy;
   activeRenderVersionId?: string | null;
   activeOverlayId?: string | null;
+  sharingVisibility: DocumentSharingVisibility;
+  libraryUserIds: string[];
   createdByUserId: string;
+  isOwner?: boolean;
+  isImported?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   tenantId?: string;

@@ -71,6 +71,7 @@ const localStorageAtoms = {
   playbackRate: atomWithLocalStorage<number | null>('playbackRate', null),
   cacheTTS: atomWithLocalStorage('cacheTTS', true),
   documentSpeechAutoscroll: atomWithLocalStorage('documentSpeechAutoscroll', true),
+  documentSpeechPauseOnFigures: atomWithLocalStorage('documentSpeechPauseOnFigures', false),
   documentSpeechHighlightMode: atomWithLocalStorage<'off' | 'excerpt' | 'block'>(
     'documentSpeechHighlightMode',
     'block',

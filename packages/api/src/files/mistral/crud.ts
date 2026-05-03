@@ -180,7 +180,6 @@ export async function performOCR({
       ocrURL,
       {
         model,
-        image_limit: 0,
         include_image_base64: includeImageBase64,
         document: {
           type: documentType,
