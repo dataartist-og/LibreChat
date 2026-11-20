@@ -4,6 +4,87 @@ import type * as a from '../types/agents';
 import type * as s from '../schemas';
 import type * as t from '../types';
 
+export type LectureSource = { id: string; title: string; url: string };
+export type LectureEvidence = { sourceId: string; anchor: string; section: string; why: string };
+export type LectureMoment = {
+  id: string;
+  start: number;
+  end: number;
+  title: string;
+  explanation: string;
+  technical: string;
+  question: string;
+  evidence: LectureEvidence[];
+  checkpoint: boolean;
+};
+export type Lecture = {
+  id: string;
+  title: string;
+  videoId: string;
+  description: string;
+  duration: number;
+  sources: LectureSource[];
+  moments: LectureMoment[];
+};
+export type LectureSourceResponse = { html: string; url: string; title: string };
+export type LectureMessage = { role: 'user' | 'assistant'; content: string };
+export type LectureAskRequest = {
+  lecture: Lecture;
+  momentId: string;
+  question: string;
+  sourceId?: string;
+  focus?: { sourceId: string; anchor: string };
+  history?: LectureMessage[];
+};
+export type LectureAskResponse = {
+  answer: string;
+  citations: { sourceId: string; url: string; section: string }[];
+  takeaways?: string[];
+};
+export type LectureNote = {
+  id: string;
+  lectureId: string;
+  timestamp: number;
+  momentId: string;
+  sourceId: string;
+  question: string;
+  answer: string;
+  takeaways: string[];
+  citations: LectureAskResponse['citations'];
+  createdAt: string;
+};
+export type LectureVoiceStatus = { available: boolean; reason?: string; provider: 'codex' };
+export type LectureVoiceRequest = {
+  lecture: Lecture;
+  momentId: string;
+  sourceId: string;
+  focus?: { sourceId: string; anchor: string };
+  sdp: string;
+};
+export type LectureVoiceSession = { sessionId: string; sdp: string };
+export type LectureNotesRequest = Pick<LectureAskRequest, 'lecture' | 'momentId' | 'question'> & {
+  sourceId: string;
+  answer: string;
+};
+export type LectureNotesResponse = { takeaways: string[] };
+export type LectureYouTubeRequest = { videoUrl: string };
+export type LectureYouTubeResponse = {
+  title: string;
+  videoUrl: string;
+  description: string;
+  transcript: string;
+  transcriptKind: 'manual' | 'automatic' | 'unavailable';
+  language: string;
+  sourceUrls: string[];
+  warnings: string[];
+};
+export type LectureIndexRequest = {
+  title: string;
+  videoUrl: string;
+  transcript: string;
+  description: string;
+};
+
 export type Conversation = {
   id: string;
   createdAt: number;

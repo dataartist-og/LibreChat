@@ -20,6 +20,18 @@ async function _post(url: string, data?: any) {
   return response.data;
 }
 
+async function _postWithOptions<T, TData>(
+  url: string,
+  data: TData,
+  options?: AxiosRequestConfig,
+): Promise<T> {
+  const response = await axios.post<T>(url, data, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  });
+  return response.data;
+}
+
 async function _postMultiPart(url: string, formData: FormData, options?: AxiosRequestConfig) {
   const response = await axios.post(url, formData, {
     ...options,
@@ -160,6 +172,7 @@ export default {
   get: _get,
   getResponse: _getResponse,
   post: _post,
+  postWithOptions: _postWithOptions,
   postMultiPart: _postMultiPart,
   postTTS: _postTTS,
   put: _put,

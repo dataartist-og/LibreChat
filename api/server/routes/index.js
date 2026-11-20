@@ -11,6 +11,7 @@ const endpoints = require('./endpoints');
 const staticRoute = require('./static');
 const messages = require('./messages');
 const learners = require('./learners');
+const lectures = require('./lectures');
 const memories = require('./memories');
 const presets = require('./presets');
 const prompts = require('./prompts');
@@ -74,6 +75,7 @@ module.exports = {
   balance,
   messages,
   learners,
+  lectures,
   memories,
   endpoints,
   assistants,

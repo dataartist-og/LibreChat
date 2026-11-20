@@ -45,6 +45,7 @@ export * from './clarifications';
 export * from './visualizations';
 /* Documents */
 export * from './documents';
+export * from './lectures';
 /* Dialogs */
 export * from './dialogs';
 /* Prompts */

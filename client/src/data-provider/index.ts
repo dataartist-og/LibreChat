@@ -6,6 +6,7 @@ export * from './Documents';
 export * from './Endpoints';
 export * from './Files';
 export * from './Learners';
+export * from './Lectures';
 /* Memories */
 export * from './Memories';
 export * from './Messages';

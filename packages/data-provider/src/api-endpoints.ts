@@ -20,6 +20,15 @@ if (BASE_URL && BASE_URL.endsWith('/')) {
 
 export const apiBaseUrl = () => BASE_URL;
 
+export const lectureSource = () => `${BASE_URL}/api/lectures/source`;
+export const lectureAsk = () => `${BASE_URL}/api/lectures/ask`;
+export const lectureIndex = () => `${BASE_URL}/api/lectures/index`;
+export const lectureImport = () => `${BASE_URL}/api/lectures/import`;
+export const lectureVoice = () => `${BASE_URL}/api/lectures/voice`;
+export const lectureVoiceStop = () => `${BASE_URL}/api/lectures/voice/stop`;
+export const lectureNotes = () => `${BASE_URL}/api/lectures/notes`;
+export const lectureYouTube = () => `${BASE_URL}/api/lectures/youtube`;
+
 // Testing this buildQuery function
 const buildQuery = (params: Record<string, unknown>): string => {
   const query = Object.entries(params)
@@ -230,7 +239,8 @@ export const documentVisualizationRender = (visualizationId: string) =>
 export const documentSpeechManifest = (documentId: string) =>
   `${documentById(documentId)}/speech/manifest`;
 
-export const documentSpeechAudio = (documentId: string) => `${documentById(documentId)}/speech/audio`;
+export const documentSpeechAudio = (documentId: string) =>
+  `${documentById(documentId)}/speech/audio`;
 
 export const documentSpeechAudioById = (documentId: string, audioArtifactId: string) =>
   `${documentSpeechAudio(documentId)}/${encodeURIComponent(audioArtifactId)}`;

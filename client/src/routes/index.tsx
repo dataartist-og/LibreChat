@@ -20,6 +20,7 @@ import ShareRoute from './ShareRoute';
 import ChatRoute from './ChatRoute';
 import DialogRoute from './DialogRoute';
 import DocumentRoute from './DocumentRoute';
+import LectureWorkspace from '~/components/Lectures/Workspace';
 import Search from './Search';
 import Root from './Root';
 
@@ -116,6 +117,10 @@ export const router = createBrowserRouter(
             {
               path: 'dialogs/:dialogId?',
               element: <DialogRoute />,
+            },
+            {
+              path: 'lectures',
+              element: <LectureWorkspace />,
             },
             {
               path: 'search',

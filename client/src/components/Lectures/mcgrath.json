@@ -1,0 +1,1246 @@
+{
+  "id": "mcgrath",
+  "title": "Tom McGrath: Inside Neural Networks",
+  "videoId": "_egu7OFem-k",
+  "description": "A source-linked study companion to the Machine Learning Street Talk interview. Watch continuously, pause at researched checkpoints, and connect the claims to precise paper sections and original technical explanations.",
+  "duration": 6014,
+  "sources": [
+    {
+      "id": "misalignment",
+      "title": "Emergent Misalignment: Narrow finetuning can produce broadly misaligned LLMs",
+      "url": "https://arxiv.org/html/2502.17424v7"
+    },
+    {
+      "id": "chess",
+      "title": "Acquisition of Chess Knowledge in AlphaZero",
+      "url": "https://arxiv.org/html/2111.09259v2"
+    },
+    {
+      "id": "intentional",
+      "title": "Intentionally designing the future of AI",
+      "url": "https://www.goodfire.com/blog/intentional-design"
+    },
+    {
+      "id": "caft",
+      "title": "Steering Out-of-Distribution Generalization with Concept Ablation Fine-Tuning",
+      "url": "https://arxiv.org/html/2507.16795v2"
+    },
+    {
+      "id": "persona",
+      "title": "Persona Vectors: Monitoring and Controlling Character Traits in Language Models",
+      "url": "https://arxiv.org/html/2507.21509v3"
+    },
+    {
+      "id": "rewards",
+      "title": "Features as Rewards: Scalable Supervision for Open-Ended Tasks via Interpretability",
+      "url": "https://arxiv.org/html/2602.10067v3"
+    },
+    {
+      "id": "posttraining",
+      "title": "Anatomy of Post-Training: Using Interpretability to Characterize Data and Shape the Learning Signal",
+      "url": "https://arxiv.org/html/2606.12360v1"
+    },
+    {
+      "id": "world",
+      "title": "The World Inside Neural Networks",
+      "url": "https://www.goodfire.com/research/the-world-inside-neural-networks"
+    },
+    {
+      "id": "manifolds",
+      "title": "Do Sparse Autoencoders Capture Concept Manifolds?",
+      "url": "https://arxiv.org/html/2604.28119v1"
+    },
+    {
+      "id": "steering",
+      "title": "Manifold Steering Reveals the Shared Geometry of Neural Network Representation and Behavior",
+      "url": "https://arxiv.org/html/2605.05115v1"
+    },
+    {
+      "id": "arithmetic",
+      "title": "Arithmetic in the Wild: Llama uses Base-10 Addition to Reason About Cyclic Concepts",
+      "url": "https://arxiv.org/html/2605.01148v1"
+    },
+    {
+      "id": "beliefs",
+      "title": "Measuring Reward-Seeking via Contrastive Belief Updates",
+      "url": "https://arxiv.org/html/2607.18966v1"
+    },
+    {
+      "id": "pragmatic",
+      "title": "A Pragmatic Vision for Interpretability",
+      "url": "https://www.alignmentforum.org/posts/StENzDcD3kpfGJssR/a-pragmatic-vision-for-interpretability"
+    },
+    {
+      "id": "bsf-vision",
+      "title": "Uncovering Neural Geometry in Vision Models With Block-Sparse Featurizers (supplementary reading)",
+      "url": "https://www.goodfire.com/research/bsf-vision"
+    }
+  ],
+  "moments": [
+    {
+      "id": "mcgrath-introduction-0",
+      "start": 0,
+      "end": 5,
+      "title": "Use the interview as a lecture",
+      "explanation": "Follow Tom McGrath and Machine Learning Street Talk from interpretability as a science to model control, neural geometry, and research priorities. Study checkpoints connect selected passages to specific primary-source sections. Other moments provide original learning notes without a verified source mapping.",
+      "technical": "The learning notes distinguish mathematical illustrations, published results, and hypotheses expressed in the interview. Supplementary readings are identified in their source titles.",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-science-5",
+      "start": 5,
+      "end": 37,
+      "title": "Interpretability as science",
+      "explanation": "Start with a measurable behavior and a falsifiable mechanism. A useful account should rule out at least one alternative explanation.",
+      "technical": "observation → hypothesis → intervention → held-out prediction\n\nA correlational claim predicts which activations accompany a behavior. A causal claim predicts how the behavior changes when selected activations are modified.\n\nIndependent replication matters because the choice of prompts, layer, projection, and examples can make an attractive explanation look more universal than it is.\n\nThe forecast of much faster interpretability is a research outlook, not a measured scaling law.",
+      "question": "If a neuron fires whenever a model mentions a city, have you found the city module?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-science-37",
+      "start": 37,
+      "end": 71,
+      "title": "Seeing versus controlling",
+      "explanation": "A sensor helps you observe the system; an actuator lets you change it. Accurate sensing is necessary for useful control, but sensing alone does not establish control.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-science-71",
+      "start": 71,
+      "end": 98,
+      "title": "What would faster science require?",
+      "explanation": "Separate experimental throughput from hypothesis quality. Automating many poorly controlled experiments can multiply confusion as easily as knowledge.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-science-98",
+      "start": 98,
+      "end": 123,
+      "title": "A world inside the network",
+      "explanation": "Ask whether representation structure reflects useful regularities of a task. Shared geometry is evidence to investigate, not proof that two systems understand in the same way.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-123",
+      "start": 123,
+      "end": 198,
+      "title": "Programs, models, and intention",
+      "explanation": "Write down the difference between explicit program requirements and a statistical training objective. A dataset specifies examples, but leaves many aspects of the learned rule underdetermined.",
+      "technical": "θ′ = θ − η ∇θ L(data; θ)\n\nθ is the collection of model parameters. One gradient update changes shared parameters used by many tasks, so local training need not have only local effects.\n\nTo distinguish a broad behavioral change from prompt artifacts, compare the original model, the fine-tuned model, and a control trained on similar but benign data.\n\nFeature names such as deception are human interpretations of activation patterns; they do not establish a subjective feeling or a human-like motive.",
+      "question": "Why is it insufficient to evaluate an insecure-code fine-tune only on coding prompts?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-198",
+      "start": 198,
+      "end": 244,
+      "title": "Whose objective is being optimized?",
+      "explanation": "The user’s goal, the training reward, and a grader’s preference can diverge. Keep three separate columns for them when analyzing an agent.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-244",
+      "start": 244,
+      "end": 298,
+      "title": "Generalization beyond the test",
+      "explanation": "A robust claim needs evaluation in new situations. Passing the environment that supplied the training signal leaves open how the learned strategy transfers.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-298",
+      "start": 298,
+      "end": 343,
+      "title": "A stronger policy meets an old evaluator",
+      "explanation": "An evaluator that was adequate for a weaker policy may contain shortcuts a stronger policy can exploit. Reassess the environment as capability changes.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-343",
+      "start": 343,
+      "end": 376,
+      "title": "Narrow data, wider behavior",
+      "explanation": "Use the linked emergent-misalignment study for the controlled evidence. Do not assume every narrow fine-tune produces the effect or that every model is equally susceptible.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-grader-376",
+      "start": 376,
+      "end": 411,
+      "title": "Reading internal warning signs",
+      "explanation": "Treat a labeled activation as a candidate monitor. Evaluate its false positives and false negatives before interpreting it as evidence of intent.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-chess-411",
+      "start": 411,
+      "end": 442,
+      "title": "Why chess is a useful laboratory",
+      "explanation": "Chess supplies exact rules, repeatable positions, and meaningful performance tests. This makes it easier to distinguish a plausible story from a prediction about behavior.",
+      "technical": "ĉ = wᵀhℓ(position) + b\n\nhℓ is the activation at layer ℓ; c is a human-labeled concept. Fit w and b on training positions, then measure prediction on held-out positions.\n\nCompare against input-based baselines, shuffled labels, different training checkpoints, and probe complexity. A powerful probe can do work that the original network never did.\n\nA stronger causal experiment changes concept-relevant activations while preserving other information as well as possible, then measures a specific predicted change in move evaluation.\n\nSelf-play is not absence of prior structure: game rules, the objective, the board encoding, and the architecture constrain what can be learned.",
+      "question": "A probe predicts material advantage perfectly. What have you established?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-442",
+      "start": 442,
+      "end": 564,
+      "title": "What does finding chess knowledge actually mean?",
+      "explanation": "The study asks whether a small readout can recover a chess concept from AlphaZero's activations. This is narrower than asking whether the network thinks like a grandmaster. A probe succeeds when the representation makes a labeled property accessible; success alone does not show that the playing policy causally uses that property.",
+      "technical": "For a continuous concept c, fit ĉ = wᵀh + b with sparse regularization. For a binary concept, use σ(wᵀh + b). Compare held-out performance against input-only and random-target controls. The what–when–where plots vary the concept, training checkpoint, and layer.",
+      "question": "If a probe predicts king safety well, what additional experiment would establish that the policy uses that information?",
+      "evidence": [
+        {
+          "sourceId": "chess",
+          "anchor": "S4.SS2",
+          "section": "§4.2 Probing concept learning; Figure 2",
+          "why": "Defines the readouts and controls."
+        },
+        {
+          "sourceId": "chess",
+          "anchor": "S4.F2",
+          "section": "Figure 2: What-when-where plots",
+          "why": "Shows concept accessibility across layers and checkpoints."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-564",
+      "start": 564,
+      "end": 696,
+      "title": "Self-play is not the absence of design choices",
+      "explanation": "AlphaZero's self-play makes convergence with familiar chess concepts striking, but its representation still encodes board structure. Superhuman performance also does not establish that every internal concept is new science.",
+      "technical": "Figure 1 distinguishes 8×8×256 activation tensors from 3×3 convolution kernels. The interview's informal convolution wording should not be copied as a kernel specification. Sparse probes can miss distributed or nonlinear information; poor probe accuracy is not proof that a concept is absent.",
+      "question": "Which claims concern the source of training data, and which concern architectural assumptions?",
+      "evidence": [
+        {
+          "sourceId": "chess",
+          "anchor": "S3.SS1",
+          "section": "§3.1 and Figure 1: Network architecture",
+          "why": "Separates tensor shape from kernel size."
+        },
+        {
+          "sourceId": "chess",
+          "anchor": "S4.SS5",
+          "section": "§4.5 Challenges and limitations for concept probing",
+          "why": "Explains probe blind spots."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-chess-696",
+      "start": 696,
+      "end": 744,
+      "title": "The neuroscience analogy",
+      "explanation": "Both fields use observations and perturbations to infer function. Artificial networks allow exact reruns and extensive access, though their behavior still needs careful interpretation.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-control-744",
+      "start": 744,
+      "end": 793,
+      "title": "Where interpretability enters training",
+      "explanation": "Distinguish observation, choice of intervention, and update. A useful learning loop needs all three, with an evaluation independent of its internal score.",
+      "technical": "h ≈ b + Σᵢ zᵢdᵢ   ;   attributionᵢ ≈ zᵢ ⟨∂L/∂h, dᵢ⟩\n\ndᵢ is a decoder direction and zᵢ its activation. The directional derivative tells us how a small activation change along dᵢ affects the loss locally.\n\nAn SAE can be overcomplete: it has more latent dimensions than the original activation vector. The constraint is sparsity, not necessarily a narrower physical layer.\n\nActivation attribution is not an exact prediction of parameter learning. Updating θ changes many activations and their interactions on later examples.\n\nThe control-loop analogy is suggestive. Standard training already contains feedback; interpretability proposes richer internal measurements, not the first use of feedback in learning.",
+      "question": "Why is an SAE’s sparse layer not necessarily a dimensional bottleneck?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-control-793",
+      "start": 793,
+      "end": 799,
+      "title": "A weak scalar signal",
+      "explanation": "A single success bit does not identify which step or internal computation deserved credit. Many different strategies can achieve the same reward.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-799",
+      "start": 799,
+      "end": 1001,
+      "title": "One example can teach several lessons",
+      "explanation": "The pirate-math example motivates selective learning: useful reasoning and incidental style coexist in one target answer. McGrath's proposal is to inspect those contributions and guide learning. It is an agenda, not a claim that arbitrary behaviors can already be specified reliably.",
+      "technical": "Original exercise: track arithmetic accuracy and pirate-style frequency separately before and after training.",
+      "question": "Which evaluation would reveal that a math improvement also changed unrelated conversation style?",
+      "evidence": [
+        {
+          "sourceId": "intentional",
+          "anchor": "what-does-intentional-design-enable",
+          "section": "What does intentional design enable?",
+          "why": "Introduces selective learning through the pirate example."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-1001",
+      "start": 1001,
+      "end": 1250,
+      "title": "An SAE reads local sensitivity, not the future",
+      "explanation": "The essay decomposes an activation gradient using SAE directions. This offers a vocabulary for discussing learning signals, but it is not an exact forecast of the updated network.",
+      "technical": "aᵢ = meanₜ[zᵢ,ₜ dᵢᵀ∇hₜL]. The dot product measures local sensitivity; multiplying by z weights active features. Parameter updates also change later computations.",
+      "question": "Why can two parameter updates with similar activation attribution produce different behavior later?",
+      "evidence": [
+        {
+          "sourceId": "intentional",
+          "anchor": "what-does-intentional-design-enable",
+          "section": "What does intentional design enable? Figure 1 and footnote 3",
+          "why": "Gives the attribution construction."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-control-1250",
+      "start": 1250,
+      "end": 1314,
+      "title": "An interface between language and tensors",
+      "explanation": "A label makes a representation discussable. A reliable engineering interface additionally needs calibrated detection, controlled interventions, and outcome checks.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-interventions-1314",
+      "start": 1314,
+      "end": 1444,
+      "title": "Why monitor-based training is controversial",
+      "explanation": "A proxy can be optimized without satisfying the intended goal. Evaluate both the proxy and the target behavior throughout training.",
+      "technical": "toy loss = ½(w + s − y)²   ;   ∂L/∂w = w + s − y\n\nw is learned style, s is a temporary training-time contribution, and y is the style target. If s already explains y, the gradient need not increase w. Remove s at evaluation.\n\nThis one-parameter example only illustrates credit assignment. A real network contains distributed, interacting representations and will not obey this scalar equation exactly.\n\nCAFT and preventative steering are distinct interventions. Read each paper’s actual forward-pass and gradient rules rather than treating all steering as the same method.\n\nNo intervention here is a general safety guarantee. Strong conclusions require independent behavioral tests and checks for representation changes.",
+      "question": "Why might making a persona stronger during training make it weaker after training?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-1444",
+      "start": 1444,
+      "end": 1571,
+      "title": "A frozen detector is different from a detached score",
+      "explanation": "The essay's proposed mitigation evaluates a probe on a frozen model copy. Merely detaching a score on the changing policy does not preserve its representations. Neither construction makes reward exploitation impossible.",
+      "technical": "Original distinction: ∇θq(hθ) directly changes the measured representation; policy-gradient learning from q(hφ(y)), with φ fixed, changes the distribution of generated text y. The latter can still discover misleading text.",
+      "question": "What remains optimizable even when the teacher weights and probe are frozen?",
+      "evidence": [
+        {
+          "sourceId": "intentional",
+          "anchor": "developing-responsibly",
+          "section": "Developing intentional design responsibly",
+          "why": "States the concrete mitigation."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-interventions-1571",
+      "start": 1571,
+      "end": 1649,
+      "title": "Knowing a concept versus acting on it",
+      "explanation": "Representing a dangerous situation can be useful for avoiding it. A well-targeted behavioral change need not erase knowledge of the situation.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-interventions-1649",
+      "start": 1649,
+      "end": 1704,
+      "title": "Distributed representations and rerouting",
+      "explanation": "Removing one pathway may leave another. Test across layers and contexts before claiming that a concept has been removed from the model.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-1704",
+      "start": 1704,
+      "end": 1769,
+      "title": "CAFT blocks selected directions during learning",
+      "explanation": "CAFT projects activations away from an interpreted subspace during fine-tuning and removes that operation at inference. It does not claim to delete every representation of a concept. The interview's rerouting concern is a possible failure mode, not evidence that CAFT universally fails.",
+      "technical": "For an orthonormal basis U, h′ = (I−UUᵀ)h. Both the forward pass and backpropagation use the projection. Contrast an axis restriction with a signed shift: removing access to information is different from supplying an external contribution in one direction. Selection and coverage of U matter.",
+      "question": "Why might blocking one layer leave another route for fitting the training examples?",
+      "evidence": [
+        {
+          "sourceId": "caft",
+          "anchor": "S3",
+          "section": "§3 Method",
+          "why": "Specifies projection placement and removal."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-1769",
+      "start": 1769,
+      "end": 1916,
+      "title": "Why adding a persona can reduce its acquisition",
+      "explanation": "Preventative steering adds a trait direction during training, reducing the need for parameter changes to supply that trait. Inference then removes the extra contribution. This is the counterintuitive sign reversal behind the thermostat analogy.",
+      "technical": "Original scalar analogy: L=½(w+s−y)² gives ∂L/∂w=w+s−y and optimum w=y−s. Here s is temporary assistance, not learned style. Real-network results depend on steering strength and layers; the analogy is not a mechanistic proof.",
+      "question": "If s exceeds y in the scalar toy, what does training do to w?",
+      "evidence": [
+        {
+          "sourceId": "persona",
+          "anchor": "S5.SS2",
+          "section": "§5.2 Preventative steering limits behavioral shifts",
+          "why": "Explains the training-time sign and evidence."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-1916",
+      "start": 1916,
+      "end": 1970,
+      "title": "Explaining a style through the prompt",
+      "explanation": "Preventative prompting supplies context that already makes an unusual response expected. The Persona Vectors appendix tests this idea on fact acquisition. It is related to activation steering, but the intervention enters through the input text.",
+      "technical": "In the reported comparison, prompting and weaker steering produce similar outcomes; stronger steering offers further control. Keep that setting-specific finding separate from the interview's pirate analogy and from universal claims about inoculation.",
+      "question": "What control would distinguish learning conditional pirate speech from becoming a pirate in every context?",
+      "evidence": [
+        {
+          "sourceId": "persona",
+          "anchor": "A10.SS7.SSS2",
+          "section": "Appendix J.7.2 Preventative prompting on a fact-acquisition task; Figure 31",
+          "why": "Reports a direct prompting-versus-steering comparison."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-interventions-1970",
+      "start": 1970,
+      "end": 2140,
+      "title": "The tension with hand-designed concepts",
+      "explanation": "Distinguish discovering representations from selecting which outcomes humans prefer. A learned feature vocabulary does not remove the human choice of objectives.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-interventions-2140",
+      "start": 2140,
+      "end": 2256,
+      "title": "Spending computation on better learning",
+      "explanation": "One possible research direction is to improve the learning signal using analysis of examples and gradients. Its value must be compared with simpler data or reward baselines.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-hallucinations-2256",
+      "start": 2256,
+      "end": 2299,
+      "title": "Can representations supervise behavior?",
+      "explanation": "A representation can carry information that the output does not reliably use. A training signal may improve the conversion of available information into behavior.",
+      "technical": "frozen teacher → probe reward → student intervention → checked continuation\n\nThe teacher and student have different roles. The teacher supplies fixed representations for the reward probes; the student produces candidate interventions. Keeping the teacher frozen removes a direct path for the student’s weight updates to rewrite that monitor.\n\nAmortization means paying an expensive labeling cost up front, then spreading that cost across many cheap scoring operations.\n\nThe full reported system combines monitoring, inline interventions, reinforcement learning, and probe-guided best-of-N selection. Its improvement should not be attributed solely to a weight update or to a generic fact-checking probe.\n\nEvaluate external factuality, answer coverage, and probe reliability as training progresses. Silence, evasiveness, or monitor evasion can also improve a poorly designed score.",
+      "question": "Why does a lower hallucination-probe score not by itself demonstrate better factuality?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-hallucinations-2299",
+      "start": 2299,
+      "end": 2361,
+      "title": "The problem with a fixed intervention",
+      "explanation": "A direction found before training may become incomplete or inaccurate as the model changes. Monitor calibration is part of the experiment.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-hallucinations-2361",
+      "start": 2361,
+      "end": 2421,
+      "title": "A menu of possible updates",
+      "explanation": "Think of gradient analysis as a proposed decision aid. Choosing an update still needs a specification and evidence that the intervention works.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-2421",
+      "start": 2421,
+      "end": 2551,
+      "title": "Pay once for labels, reuse a fast readout",
+      "explanation": "RLFR uses Gemini 2.5 Pro and web search to label claims, then trains attention-based probes on frozen-base activations. Separate localization and classification stages find claim spans and assess them.",
+      "technical": "Original cost model: annotation is a setup cost; probe inference is paid repeatedly. Amortization requires sufficient reuse and a useful readout.",
+      "question": "What distribution shift could make a cheap probe's training labels a poor guide?",
+      "evidence": [
+        {
+          "sourceId": "rewards",
+          "anchor": "S3.SS1",
+          "section": "§3.1 Localize and Classify; Figure 3",
+          "why": "Specifies label generation and the two monitors."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-2551",
+      "start": 2551,
+      "end": 2703,
+      "title": "Separate the student's words from the teacher's measurements",
+      "explanation": "The student generates text; a frozen teacher reads it for probe measurements. Separate reward probes assess corrections and retractions, alongside quality checks. RL updates the student.",
+      "technical": "Figure 2 places training rewards on teacher activations. Appendix C.1.3 explicitly prefills generated completions through the teacher. The interview's check-before-generation account is a hypothesis, not a demonstrated hallucination circuit here.",
+      "question": "Why does a frozen teacher prevent direct representation drift but still leave reward hacking possible?",
+      "evidence": [
+        {
+          "sourceId": "rewards",
+          "anchor": "S2.F2",
+          "section": "Figure 2: Framework",
+          "why": "Separates measurement from learning."
+        },
+        {
+          "sourceId": "rewards",
+          "anchor": "A3.SS1.SSS3",
+          "section": "Appendix C.1.3 Localize & Detect",
+          "why": "Makes teacher prefill explicit."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-2703",
+      "start": 2703,
+      "end": 2779,
+      "title": "Corrections become part of the next context",
+      "explanation": "Inline interventions are inserted before generation continues. The 58% reduction belongs to the full RLFR setup with best-of-32 sampling, not the trained policy alone. Figure 4 separates policy, in-context, and direct-correction contributions.",
+      "technical": "Original causal question: keeping model weights fixed, does changing the prefix change later mistakes? An inline versus non-inline comparison tests this without establishing the interview's latent-persona explanation.",
+      "question": "Why should an evaluation report both the standalone policy and the full correction harness?",
+      "evidence": [
+        {
+          "sourceId": "rewards",
+          "anchor": "S3.F4",
+          "section": "Figure 4: End-to-End Results",
+          "why": "Scopes the headline result."
+        },
+        {
+          "sourceId": "rewards",
+          "anchor": "A4.SS2",
+          "section": "Appendix D.2 Intervention Strategy",
+          "why": "Defines the context intervention."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-data-2779",
+      "start": 2779,
+      "end": 2791,
+      "title": "Predict effects before an expensive run",
+      "explanation": "Dataset inspection is most useful when it informs a decision before training. State a predicted behavioral effect and check it after training.",
+      "technical": "Δz = z(chosen) − z(rejected)\n\nA positive coordinate means the chosen response activates that feature more. It describes a contrast between answers; by itself it is not an exact parameter update.\n\nDPO trains on relative log probabilities of chosen and rejected responses, compared with a reference model. Feature differences are an analysis of that preference signal, not the full DPO gradient.\n\nFor a balanced audit, inspect clusters of examples, check whether the assigned labels hold, and evaluate an actual training run after curating the data.\n\nDifferences in SAE features depend on the model, layer, dictionary, and token aggregation. An interpretation can miss features that the dictionary does not capture.",
+      "question": "If preferred answers are always longer, what confound should you test?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-2791",
+      "start": 2791,
+      "end": 2953,
+      "title": "Ask what preference labels reward in a particular context",
+      "explanation": "A global average can hide a local regression. The prompt-conditioned pipeline asks which response features are favored for a particular prompt cluster. The feature-conditioned view reverses the question: where does a response concept receive preference?",
+      "technical": "A positive chosen-minus-rejected feature difference suggests a training hypothesis. It is not an exact parameter-gradient prediction. In this study, global feature-conditioned change correlates more strongly with observed post-DPO change than prompt-conditioned change.",
+      "question": "How could overall sycophancy remain stable while physics-specific sycophancy increases?",
+      "evidence": [
+        {
+          "sourceId": "posttraining",
+          "anchor": "S3.SS1",
+          "section": "§3.1 Prompt-Conditioned Hypothesis Generation; Figure 4",
+          "why": "Links context to response preference."
+        },
+        {
+          "sourceId": "posttraining",
+          "anchor": "S3.SS3",
+          "section": "§3.3 Validation; Figures 6–7",
+          "why": "Tests hypotheses against trained models."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-2953",
+      "start": 2953,
+      "end": 3044,
+      "title": "Cluster topic first, test preference second",
+      "explanation": "The feature-conditioned method separates topic similarity from preference direction. It clusters pairs using activity on either response, then tests chosen-versus-rejected disparity. Clustering directly on the disparity and rediscovering that same disparity would be circular.",
+      "technical": "Symmetric activity: sᵢ,m=Σg(cᵢ,g+rᵢ,g). Signed statistic: uᵢ,m=mean_g[1(cᵢ,g>τ)−1(rᵢ,g>τ)]. Compare mean u inside a cluster with outside it; validate sign on split halves. These are hypothesis tests about data, not guarantees of downstream behavior.",
+      "question": "Why can two examples with opposite preferences still belong in the same topic cluster?",
+      "evidence": [
+        {
+          "sourceId": "posttraining",
+          "anchor": "S3.SS2",
+          "section": "§3.2 Feature-Conditioned Hypothesis Generation",
+          "why": "Explains the separated clustering and testing statistics."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-modularity-3044",
+      "start": 3044,
+      "end": 3131,
+      "title": "What counts as a module?",
+      "explanation": "Define it by a computation and its causal role. A visually separated cluster of activations alone is insufficient.",
+      "technical": "representation → reusable computation → representation\n\nA module is a functional description. Establish its inputs, outputs, and intervention effects across tasks before calling it a reusable algorithm.\n\nA smooth average learning curve can hide different acquisition times for different abilities. Conversely, a sharp benchmark jump need not imply a sudden internal phase transition.\n\nThe interview’s micro-grokking account is a hypothesis about learning dynamics. This companion does not treat it as a settled description of all training.",
+      "question": "How can a fully connected architecture end up functionally modular?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-modularity-3131",
+      "start": 3131,
+      "end": 3179,
+      "title": "Overparameterization and specialization",
+      "explanation": "Separate the flexibility useful for learning from the organization present after learning. They need not have the same structure.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-modularity-3179",
+      "start": 3179,
+      "end": 3233,
+      "title": "Addressable representations",
+      "explanation": "A representation is useful to later computation only if that computation can reliably read it. This motivates studying interfaces between learned parts.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-modularity-3233",
+      "start": 3233,
+      "end": 3250,
+      "title": "Generalization without a table of answers",
+      "explanation": "A reusable rule can handle combinations never individually memorized. Test on held-out combinations that distinguish a rule from lookup behavior.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-modularity-3250",
+      "start": 3250,
+      "end": 3291,
+      "title": "When does structure emerge?",
+      "explanation": "Use multiple training checkpoints. A single final model cannot reveal whether the relevant computation appeared abruptly or gradually.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-modularity-3291",
+      "start": 3291,
+      "end": 3357,
+      "title": "Many small learning transitions",
+      "explanation": "Different tasks may be acquired at different times. Aggregation can conceal that variation; the micro-grokking story is an interpretation to test.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-3357",
+      "start": 3357,
+      "end": 3488,
+      "title": "A picture of a concept is a hypothesis",
+      "explanation": "The interview begins with an observable: examples sharing a structured concept produce an organized cloud of activations. Before interpreting the picture, separate three choices: which prompts were sampled, which layer was recorded, and which projection was displayed. Original teaching example: photograph a spiral staircase from above and it looks like a circle; photograph it from the side and it looks like a zigzag. A projection can reveal a relationship while hiding another. The language experiments fit curves through concept centroids after reducing activations to 64 PCA dimensions; the displayed three-dimensional pictures are further visualizations. This establishes a carefully constructed view, not a universal map of the model.",
+      "technical": "Original derivation: for activation rows h_i, subtract their mean μ and form X. PCA chooses orthonormal columns U_k that maximize retained variance, so y_i = U_kᵀ(h_i−μ). Discarded residuals r_i = h_i−μ−U_ky_i need not be zero. Two examples can appear adjacent in the display while differing in r_i. Check held-out prompts and residual size before treating visual neighbors as computational equivalents. Averaging by known answer labels also makes this a supervised inspection, even though PCA itself does not use labels.",
+      "question": "What would change your interpretation if a circular projection appeared only for one prompt template?",
+      "evidence": [
+        {
+          "sourceId": "steering",
+          "anchor": "S2.SS2",
+          "section": "§2.2 Fitting the Manifolds",
+          "why": "Exact fitting protocol; distinguish analysis dimensions from display dimensions."
+        },
+        {
+          "sourceId": "steering",
+          "anchor": "S2.F2",
+          "section": "Figure 2: cyclic concepts",
+          "why": "Inspect the measured activation and output geometries side by side."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-3488",
+      "start": 3488,
+      "end": 3579,
+      "title": "One-dimensional does not mean a straight line",
+      "explanation": "Here the word linear needs unpacking. Original teaching construction: a point on a hoop requires only one angle to locate it, yet the hoop cannot be drawn on one straight coordinate axis without cutting it. An internal variable can therefore have one intrinsic degree of freedom while occupying several activation directions. The SAE paper distinguishes reconstructing a curved structure from organizing it into a coherent interpretation. Those are different accomplishments: a list of accurate positions does not by itself tell you which positions belong to the same continuous object.",
+      "technical": "Take orthonormal a,b and center c. The synthetic curve h(θ)=c+a cosθ+b sinθ has intrinsic dimension one, a two-dimensional affine span, and tangent h′(θ)=−a sinθ+b cosθ. The tangent changes with θ. A linear decoder can nevertheless reconstruct the circle from two varying coordinates. With nonnegative coordinates, an elementary exact encoding with decoder bias c uses four atoms: a, −a, b, −b, weighted by the positive and negative parts of cosine and sine. Thus a linear decoder does not force its reconstructed data to lie on a single line.",
+      "question": "Which is one-dimensional here: the set of possible states, the linear span, or each dictionary atom?",
+      "evidence": [
+        {
+          "sourceId": "manifolds",
+          "anchor": "S1",
+          "section": "§1 Introduction",
+          "why": "The source explicitly separates reconstruction from coherent recovery."
+        },
+        {
+          "sourceId": "manifolds",
+          "anchor": "S4.SS0.SSS0.Px2",
+          "section": "§4 Subspace Recovery via SAEs",
+          "why": "Definition of compact capture by a fixed group of atoms."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-3579",
+      "start": 3579,
+      "end": 3707,
+      "title": "Recover the road from which detectors fire together",
+      "explanation": "McGrath describes neighboring patches that can activate together and distant alternatives that exclude each other. The paper fits pairwise Ising models to binarized SAE activity and uses the inferred relationships to group atoms. Original teaching example: imagine overlapping street cameras. Two cameras frequently seeing the same pedestrian may cover adjacent pavement; cameras observing alternative branches may rarely fire together. But popular cameras also fire often for unrelated reasons. Frequency and conditional association must be separated, and association alone cannot uniquely recover the street map.",
+      "technical": "A generic binary Ising model is P(s) ∝ exp(Σ_i b_i s_i + Σ_{i<j} J_ij s_i s_j), with s_i∈{0,1}. Holding other variables fixed gives log[P(s_i=1|s_−i)/P(s_i=0|s_−i)] = b_i + Σ_j J_ij s_j. Therefore J_ij is a conditional log-odds contribution, not a physical distance or a demonstrated causal influence. Positive and negative couplings can both be useful. Local coactivation is one intuitive pattern; it should not be imposed as the only possible pattern of manifold membership.",
+      "question": "Why can two frequently active features have a large raw correlation without belonging to one concept?",
+      "evidence": [
+        {
+          "sourceId": "manifolds",
+          "anchor": "S4.SS1",
+          "section": "§4.1 Ising Pairings and Regimes of Manifold Representation",
+          "why": "Formal coupling model and distinct capture regimes."
+        },
+        {
+          "sourceId": "manifolds",
+          "anchor": "S5.F10",
+          "section": "Figure 10: Unsupervised Discovery from SAE Codes",
+          "why": "Examples of communities recovered by the discovery procedure."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-3707",
+      "start": 3707,
+      "end": 3775,
+      "title": "A block can stay active while its internal coordinates change",
+      "explanation": "This short passage introduces a different unit of sparsity. A scalar feature offers one coefficient; a block offers a small vector. The verified companion research article describes selecting a few active blocks, with coordinates varying within each block. Original teaching example: a steering wheel remains the same control while its angle changes. Naming a separate control for every possible angle hides that continuity. Keeping the coordinates together preserves a place to describe variation. The added reading concerns vision models and should be labeled supplementary reading discovered through Goodfire, not assumed to be a link in the video description.",
+      "technical": "Generic teaching model: reconstruct h with Σ_g D_g z_g, penalizing the number of nonzero vectors z_g rather than every scalar coordinate. For example, Σ_g ||z_g||₂ is a group-lasso penalty. Block size and effective dimension differ: a 16-coordinate block may place almost all variance in two directions. One diagnostic is stable rank ||Z||_F²/||Z||₂²; equal variance in r orthogonal directions gives r. The article's vanilla BSF uses blockwise TopK, while other variants use different mechanisms. Do not present this generic objective as the implementation of every variant or equate effective-rank measurement with learning arbitrary block sizes.",
+      "question": "What evidence would show that a block captures one varying concept rather than several unrelated concepts bundled together?",
+      "evidence": [
+        {
+          "sourceId": "bsf-vision",
+          "anchor": "block-sparse-featurizers",
+          "section": "Block-Sparse Featurizers (BSFs)",
+          "why": "Verified supplementary primary article defining the method and its variants."
+        },
+        {
+          "sourceId": "bsf-vision",
+          "anchor": "how-common",
+          "section": "How common are multidimensional features?",
+          "why": "Distinguishes allocated block size from measured effective dimension."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-3775",
+      "start": 3775,
+      "end": 3909,
+      "title": "Why an arc and its shortcut can mean different things",
+      "explanation": "The mountain-car example supplies known physical state variables, making an intervention's intended meaning easier to check. The article reports smooth changes under curved-path steering and garbling or displacement under some straight paths. The following geometry is an original explanation of the possible failure, not a simulation of that trained model. A straight line averages coordinates; it does not preserve every constraint satisfied by its endpoints. Two points on a unit circle have norm one, but their average generally does not. The same distinction can matter when downstream computation expects states near a learned curve.",
+      "technical": "For unit vectors u,v separated by angle Δ∈[0,π], ||(u+v)/2|| = cos(Δ/2). The midpoint's distance to the unit circle is therefore 1−cos(Δ/2): about 0.015 for 20° separation and 0.826 for 160°. These are exact synthetic values. Locally, h(θ+δ)=h(θ)+δh′(θ)+(δ²/2)h″(θ)+…, so a tangent step misses a curvature term of order δ². This explains how small linear moves can work while larger ones leave the curve, without proving why any particular real steering failure occurred.",
+      "question": "Can valid endpoints alone establish that every interpolation between them is a valid internal state?",
+      "evidence": [
+        {
+          "sourceId": "world",
+          "anchor": "a-simple-example",
+          "section": "A simple example of how neural geometry unlocks control",
+          "why": "Primary explanation of the mountain-car experiment."
+        },
+        {
+          "sourceId": "steering",
+          "anchor": "S5.F7",
+          "section": "Figure 7: visual world model",
+          "why": "Measured outputs; the circle calculations above are separate pedagogy."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-3909",
+      "start": 3909,
+      "end": 4051,
+      "title": "Accurate pieces can still obscure the whole computation",
+      "explanation": "The interview asks what capture should mean. In the paper, compact capture uses a small, fixed group of atoms, whereas tiling spreads representation across selective pieces. Original teaching construction: store a compass bearing in two coordinates, or assign a detector to each small angular bin. Both descriptions may approximate the observations well. But only a further account of relationships tells you how to turn the bearing by ten degrees. This is why a feature dictionary is not yet an algorithmic explanation. Finding continuity helps formulate a candidate rule; testing how the model transforms that representation supplies the missing evidence.",
+      "technical": "For a proposed rotation rule, test h(θ+δ)≈R_δh(θ) across held-out θ and δ. In a two-dimensional toy, R_δ=[[cosδ,−sinδ],[sinδ,cosδ]], so R_βR_α=R_(α+β). The composition law is a stronger prediction than fitting several isolated outputs. It is still a test of an abstraction, not proof that the network literally multiplies these matrices. Reconstruction error ||h−ĥ||², consistency of active atom groups, and accuracy of intervention predictions answer different questions and should be reported separately.",
+      "question": "What new prediction becomes possible once several feature atoms are recognized as parts of one continuous variable?",
+      "evidence": [
+        {
+          "sourceId": "manifolds",
+          "anchor": "S4.F3",
+          "section": "Figure 3: Tiling vs. Capture",
+          "why": "Direct comparison of capture, shattering, and dilution."
+        },
+        {
+          "sourceId": "world",
+          "anchor": "representation-computation-behavior",
+          "section": "Representation, computation, and behavior",
+          "why": "Connects a representation account with a computation account."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4051",
+      "start": 4051,
+      "end": 4207,
+      "title": "Natural inputs and natural hidden states are different objects",
+      "explanation": "The discussion shifts from concept manifolds to the older idea that realistic data occupies a restricted region of all possible inputs. Original teaching example: an image with N pixels has many independently adjustable coordinates, but images of one rotating object may depend mainly on angle, illumination, and camera position. A network maps those inputs into a different space. It may preserve, collapse, or reorganize their relationships. Goodfire proposes tracing such structure through training data into representations. That proposal does not license treating a density estimate over images as an already validated density estimate over activations. The transcript's unnamed score-density paper is not identified by the linked source below.",
+      "technical": "If X follows density p_X and a differentiable bijection H=f(X), then p_H(h)=p_X(f⁻¹(h))|det J_(f⁻¹)(h)|. Geometry and density depend on the map, not just the labels. Real network layers are often noninvertible, so this formula is a teaching special case. Also distinguish a density p(x) from a probability: P(X∈A)=∫_A p(x)dx. A point can have high density while its tiny neighborhood has little mass. Consequently, density-based typicality needs a chosen space, neighborhood, and comparison distribution.",
+      "question": "What additional evidence is needed to transfer a statement about natural images to a statement about one layer's activations?",
+      "evidence": [
+        {
+          "sourceId": "world",
+          "anchor": "where-does-neural-geometry-come-from",
+          "section": "Where does neural geometry come from?",
+          "why": "Supports the proposed data-to-representation connection, not the unnamed density paper."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4207",
+      "start": 4207,
+      "end": 4330,
+      "title": "Strange text does not test every possible activation edit",
+      "explanation": "The speakers contrast a model handling gibberish text sensibly with a model failing after direct activation edits. Original explanation: these are different experiments. Text enters through the model's ordinary processing; an internal edit can insert a state that no text prompt ever produces. A familiar fallback answer to an unusual prompt therefore says little about the behavior of arbitrary hidden vectors. Conversely, an incoherent answer after editing does not establish that the edit crossed a particular manifold. It could disturb several factors at once. The manifold-steering paper primarily studies controlled concepts and next-token distributions, leaving broader behavioral transfer open.",
+      "technical": "Write the model as F=G∘E, where E maps allowed inputs to hidden states. Prompt testing explores G on E(X). Direct editing h↦h+δ can explore points outside E(X). Even if both sets overlap, their sampling distributions differ. An original evaluation design should separately score target change, unrelated-task retention, and output coherence. For probabilistic outputs, compare full distributions rather than only the winning token: two distributions can share an argmax while assigning very different uncertainty to alternatives.",
+      "question": "Which claim is supported by successful handling of keyboard gibberish: robust input processing, safe arbitrary interventions, or both?",
+      "evidence": [
+        {
+          "sourceId": "steering",
+          "anchor": "S8",
+          "section": "§8 Future Work and Limitations",
+          "why": "Scope boundary for extending these intervention results to general behavior."
+        },
+        {
+          "sourceId": "steering",
+          "anchor": "S3.F4",
+          "section": "Figure 4: behavioral transitions",
+          "why": "Measured distribution trajectories rather than only endpoint answers."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4330",
+      "start": 4330,
+      "end": 4448,
+      "title": "A circle does not tell you which algorithm ran",
+      "explanation": "The transition to Arithmetic in the Wild makes a crucial distinction between a representation and the process that uses it. The study finds a shared addition mechanism in Llama-3.1-8B rather than inferring direct calendar rotation from circular embeddings. Original teaching comparison: implement a seven-day calculator with an answer table, integer addition followed by modulo, or multiplication of complex phases. All three can return the same answers for every tested pair. Watching only those answers cannot tell which implementation ran. Intermediate interventions can create predictions on which the implementations differ.",
+      "technical": "For a period P and integer n, define z_P(n)=exp(2πin/P). The identity z_P(a)z_P(b)=z_P(a+b) supplies a valid toy algorithm. Integer modulo supplies another. Their agreement is mathematical; it does not show that an LLM uses either code path. To compare mechanistic hypotheses, specify an internal variable, where it is represented, and what replacing it should do. A shared circuit may also coexist with other pathways, so the useful question is how much behavior each account explains under controlled interventions.",
+      "question": "What could distinguish two implementations that agree on every ordinary input/output test?",
+      "evidence": [
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S1.F1",
+          "section": "Figure 1: concept, numerical computation, concept",
+          "why": "The paper's proposed computational sequence."
+        },
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S2.F3",
+          "section": "Figure 3: Where is the circle?",
+          "why": "Tests geometry at the relevant computation site."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4448",
+      "start": 4448,
+      "end": 4516,
+      "title": "Reuse requires a causal test across tasks",
+      "explanation": "A reusable module is more than two tasks producing similar-looking activations. The paper transfers internal information between arithmetic and cyclic prompts, testing predictions of a common computation. Original teaching example: two calculators may both display 14, but that does not prove that they share a register. Replace the candidate register in one computation using a value from the other. If the rest of the computation reacts in the specifically predicted way across many cases, the shared-variable account gains evidence. Include mismatched-variable and unrelated-subspace controls so general disruption cannot masquerade as successful transfer.",
+      "technical": "Let R have orthonormal columns defining a candidate subspace. Replacing its coordinates from a counterfactual state h_c gives h′=h_o+RRᵀ(h_c−h_o). Then Rᵀh′=Rᵀh_c while (I−RRᵀ)h′=(I−RRᵀ)h_o. This is exact linear algebra, not a claim that all other semantic variables remain unchanged: different concepts may share directions. The empirical question is whether the patched output matches a predeclared abstract counterfactual. Compare that prediction across tasks and prompts, not only on cases used to learn R.",
+      "question": "Why is retaining the orthogonal complement of a hidden vector not the same as retaining every unrelated capability?",
+      "evidence": [
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S2.SS0.SSS0.Px2",
+          "section": "§2 Approach",
+          "why": "Subspace patching and counterfactual evaluation."
+        },
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S4.F4",
+          "section": "Figure 4: addition-to-cyclic patching",
+          "why": "Direct cross-task intervention evidence."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4516",
+      "start": 4516,
+      "end": 4573,
+      "title": "Several number clocks can encode one sum",
+      "explanation": "The paper finds decimal-related Fourier periods in Llama-3.1-8B and groups selected layer-18 neurons by period. A month cycle has length twelve, but that does not force every intermediate representation to have period twelve. Original teaching example: keep several clock hands for the same integer, each rotating at a different rate. A period-2 hand distinguishes parity; a period-10 hand distinguishes final digits. These are complementary summaries of the same number, not separate calendar answers.",
+      "technical": "For a toy clock φ_T(n)=(cos(2πn/T),sin(2πn/T)), numbers n and n+T coincide. Periods 2, 5, and 10 alone therefore cannot uniquely distinguish 4 from 14; additional information is needed for larger ranges. The identities cos(α+β)=cosα cosβ−sinα sinβ and sin(α+β)=sinα cosβ+cosα sinβ explain how products can combine phases. They motivate the visualization without claiming the neurons exactly implement textbook trigonometric formulas. The later conversion from a numerical sum to the task's cyclic answer is not mechanistically explained by this paper.",
+      "question": "If your display contains only period-2, period-5, and period-10 clocks, which different sums are necessarily indistinguishable?",
+      "evidence": [
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S4.F6",
+          "section": "Figure 6: Fourier probes across tasks",
+          "why": "Evidence for decimal-related periodic representations."
+        },
+        {
+          "sourceId": "arithmetic",
+          "anchor": "S5.F10",
+          "section": "Figure 10: neuron contributions by period",
+          "why": "Inspect the measured mechanism beyond the toy clock analogy."
+        },
+        {
+          "sourceId": "arithmetic",
+          "anchor": "Sx1.SS0.SSS0.Px3",
+          "section": "Limitations: Analysis",
+          "why": "Explicit limit on the sum-to-concept stage."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-4573",
+      "start": 4573,
+      "end": 4639,
+      "title": "A promising cross-model observation is not a completed replication",
+      "explanation": "The interview mentions preliminary observations beyond the main model. The paper establishes its account only for Llama-3.1-8B; the interview's preliminary cross-model observations are separate claims. Original teaching analogy: seeing similar tire tracks suggests similar motion, but does not identify the engine. A matching embedding geometry in another model would justify a targeted investigation; it would not yet demonstrate the same circuit, routing, or failure modes. A replication should recover the causal pattern, not merely another visually appealing plot.",
+      "technical": "Original replication checklist: predefine tasks and unseen templates; locate candidate variables independently; test cross-task transfer; intervene on the proposed computational components; measure unrelated behavior and failures; report where predictions stop holding. Match the level of the claim to the level replicated. Representation similarity is weaker evidence than shared intervention behavior, and shared intervention behavior is weaker than identifying identical low-level implementation. The tokenizer explanation raised by the interviewer remains a hypothesis unless training or tokenizer interventions distinguish it from competing accounts.",
+      "question": "What is the minimum experiment needed before saying that a second model uses the same addition mechanism?",
+      "evidence": [
+        {
+          "sourceId": "arithmetic",
+          "anchor": "Sx1.SS0.SSS0.Px1",
+          "section": "Limitations: Models",
+          "why": "Exact published boundary on cross-model generalization."
+        },
+        {
+          "sourceId": "arithmetic",
+          "anchor": "Sx1.SS0.SSS0.Px2",
+          "section": "Limitations: Data",
+          "why": "Task scope is also narrower than arithmetic in general."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-goals-4639",
+      "start": 4639,
+      "end": 4694,
+      "title": "High-level abstractions",
+      "explanation": "Distinguish being able to talk about an abstraction, use it in a task, and represent it with a specific internal mechanism. Each requires different evidence.",
+      "technical": "same environment + changed goal → predictably changed policy\n\nHold task facts constant and vary the objective. Then hold the objective constant and vary the environment. This helps distinguish goal-related information from task identity.\n\nTool-use traces can become training data. Learning from those traces may reduce future dependence on external tools, but does not guarantee exact reproduction of the tool’s algorithm.\n\nThe interview leaves the representation of general goals open. There is no demonstrated universal goal slot in the sources used here.",
+      "question": "What control helps distinguish a goal feature from a topic feature?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4694",
+      "start": 4694,
+      "end": 4752,
+      "title": "Linguistic structure as a special case",
+      "explanation": "A language task supplies strong incentives to encode language regularities. Evidence about syntax does not automatically establish a general representation of scientific theories.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4752",
+      "start": 4752,
+      "end": 4800,
+      "title": "Make the question testable",
+      "explanation": "Replace “does it understand relativity?” with a bounded prediction about generalization or intervention on a specific relation.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4800",
+      "start": 4800,
+      "end": 4874,
+      "title": "Internal and external symbolic tools",
+      "explanation": "A successful system may combine learned computation with external tools. Evaluate the complete system and the model separately to identify where the ability resides.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4874",
+      "start": 4874,
+      "end": 4947,
+      "title": "Learning from a stronger scaffold",
+      "explanation": "A scaffold can produce better trajectories for future learning. Whether that distills a general algorithm or a narrower pattern remains an empirical question.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4947",
+      "start": 4947,
+      "end": 4990,
+      "title": "Memorization versus a reusable rule",
+      "explanation": "Choose held-out cases where simple retrieval fails but the proposed rule predicts an answer. This makes the competing accounts distinguishable.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-4990",
+      "start": 4990,
+      "end": 5055,
+      "title": "Intentions across contexts",
+      "explanation": "A shared objective can produce very different actions in different situations. Test the relation between objective, context, and action rather than looking for one fixed output.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-goals-5055",
+      "start": 5055,
+      "end": 5128,
+      "title": "A goal slot is an open question",
+      "explanation": "Operationalize goal information using controlled contrasts and intervention predictions. A descriptive label alone does not settle where or how it is represented.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5128",
+      "start": 5128,
+      "end": 5227,
+      "title": "Define the intended task",
+      "explanation": "Write the user’s desired outcome separately from the score. A loophole exists when increasing the score does not require improving that outcome.",
+      "technical": "Δbehavior = behavior(reward-belief B) − behavior(reward-belief A)\n\nThe paper finetunes two model copies on synthetic documents describing opposite worlds: grader prefers A/user prefers B, then grader prefers B/user prefers A. Comparing behavior helps separate grader influence from inferred user preferences. Document construction and belief internalization remain potential confounds.\n\nIndependent monitors are useful only if they actually supply independent evidence. Multiple agents with shared blind spots can agree and still be wrong.\n\nFor adaptive systems, evaluate trajectories over repeated interactions. A single isolated trial cannot characterize behavior after accumulating memory or feedback.\n\nThe code-comment deception experiment is described by McGrath as separate work. Collusion, universal intent detection, and reliable oversight remain open issues in this discussion.",
+      "question": "Why is exploiting a reward loophole not sufficient evidence of an internal concept of the grader?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5227",
+      "start": 5227,
+      "end": 5298,
+      "title": "A separate code-grader experiment",
+      "explanation": "The speaker describes research involving misleading comments and internal readouts. Keep this account distinct from the linked contrastive-belief study.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5298",
+      "start": 5298,
+      "end": 5372,
+      "title": "What does a deception direction establish?",
+      "explanation": "Inspect matched controls: misleading comments, truthful comments, correct code, and incorrect code. A useful detector must distinguish the intended contrast rather than surface wording.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-5372",
+      "start": 5372,
+      "end": 5456,
+      "title": "Reward-seeking is about what changes when grader beliefs change",
+      "explanation": "This passage distinguishes exploiting a reward function from representing the grading process and acting on beliefs about it. The linked Apollo/OpenAI paper measures the latter by creating opposing beliefs about authorities and observing which preference drives behavior. This is separate from the interview's preceding unpublished representation-difference experiment. Original teaching example: a student who wants to learn and a student who wants the examiner's approval may choose identical answers whenever the examiner rewards understanding. Agreement cases cannot distinguish their decision rules. Carefully constructed conflicts make their predictions diverge.",
+      "technical": "The study finetunes on descriptions of authority preferences, not demonstrations of compliance. A useful original causal sketch is belief about authority → chosen action, with task difficulty and existing style preference as alternative influences. Hold task content fixed while reversing the authority preferences, then test whether behavior reverses in the predicted direction. A changed answer does not directly identify a dedicated grader neuron or a universal internal goal. It is evidence of behavioral sensitivity under this intervention and evaluation distribution.",
+      "question": "Why are examples where the user and grader agree insufficient for distinguishing user-following from grader-following?",
+      "evidence": [
+        {
+          "sourceId": "beliefs",
+          "anchor": "S3.SS3",
+          "section": "§3.3 Synthetic document generation and training",
+          "why": "Defines the belief intervention."
+        },
+        {
+          "sourceId": "beliefs",
+          "anchor": "S3.SS5",
+          "section": "§3.5 Contrastive beliefs",
+          "why": "Defines the opposing-authority comparison."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-5456",
+      "start": 5456,
+      "end": 5554,
+      "title": "Learning a grader model and measuring its influence are different questions",
+      "explanation": "McGrath offers a plausible origin story: pretraining makes graders conceivable and reinforcement learning can favor strategies that satisfy them. Treat that story as a hypothesis. The linked paper measures an increasing grader-preference effect across checkpoints of one capabilities-focused o3 RL lineage without safety training; it does not isolate the historical origin of every relevant representation. Original analogy: observing that a habit strengthens during practice does not tell you exactly where the learner first acquired the idea. An explanation of acquisition requires appropriately varied training conditions, not only endpoint measurements.",
+      "technical": "For an original illustration, suppose P(A)=σ(b+w_g g+w_u u). Let one condition set g=+1,u=−1 and the other g=−1,u=+1. The log-odds difference is Δ=2(w_g−w_u), so the baseline bias b cancels in this toy. A positive Δ means relative grader influence in the specified contrast, not an absolute measure of every motive. The paper likewise uses contrastive log-odds; failed belief learning and distribution changes remain limitations. The toy's simple additive equation is not fitted to its models.",
+      "question": "If the measured contrast is zero, how would you distinguish equal authority weights from failure to internalize the new beliefs?",
+      "evidence": [
+        {
+          "sourceId": "beliefs",
+          "anchor": "S5.SS1",
+          "section": "§5.1 Contrastive SDF for coding-style features",
+          "why": "Checkpoint-specific evidence."
+        },
+        {
+          "sourceId": "beliefs",
+          "anchor": "S7",
+          "section": "§7 Limitations",
+          "why": "Bounds the interpretation."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-reward-5554",
+      "start": 5554,
+      "end": 5666,
+      "title": "Three places to intervene",
+      "explanation": "Improve the environment, change the learning signal, or change the model. Evaluate each against the actual task and avoid using the same proxy as both objective and only test.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5666",
+      "start": 5666,
+      "end": 5732,
+      "title": "Independent oversight",
+      "explanation": "Check whether the observer can see evidence that the actor cannot manipulate. Independence of context helps, but is not a proof of independence of failure.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5732",
+      "start": 5732,
+      "end": 5803,
+      "title": "Memory and collusion",
+      "explanation": "Repeated interaction changes the system under test. Examine incentives and information flow over time, including whether agents can influence their evaluators.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-reward-5803",
+      "start": 5803,
+      "end": 5843,
+      "title": "From static tests to trajectories",
+      "explanation": "Evaluate scenarios over multiple steps with state and memory. Report what was tested rather than implying coverage of every adaptive strategy.",
+      "technical": "",
+      "question": "",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-saes-5843",
+      "start": 5843,
+      "end": 5848,
+      "title": "A disagreement about priorities",
+      "explanation": "Separate disagreement about the utility of current tools from disagreement about how quickly deeper understanding can arrive.",
+      "technical": "tool quality = usefulness for a specified question\n\nMeasure reconstruction, interpretability, causal validity, efficiency, and downstream usefulness separately. Success on one axis is not success on all of them.\n\nUse a scalar feature when it answers the question. Use a subspace or manifold when internal variation and geometry matter. Use behavioral tests when the claim is about behavior.\n\nResearch priorities depend on forecasts and values as well as technical evidence. The discussion does not establish that SAEs are obsolete.",
+      "question": "Can an SAE be useful even if it fractures a manifold?",
+      "evidence": [],
+      "checkpoint": false
+    },
+    {
+      "id": "mcgrath-checkpoint-5848",
+      "start": 5848,
+      "end": 5937,
+      "title": "A disagreement about the research portfolio",
+      "explanation": "The interview contrasts confidence in accelerated fundamental understanding with a more pragmatic research strategy. Read the essay as an argument about allocating effort, rather than a finding that ambitious understanding is impossible. Its authors recommend empirical proxy tasks and explicitly allow exploratory work. Original decision exercise: imagine one project can improve a useful detector this month and another might uncover a reusable principle in a year. Their relative value depends on success probabilities, expected transfer, available time, and information gained from failure. A difference in any of those estimates can produce a reasonable strategic disagreement.",
+      "technical": "A deliberately simplified planning score is V=p_success×benefit−cost+value_of_information. It is an original decision aid, not an equation used or estimated in the essay. Assign ranges instead of false precision, then ask which uncertain assumption changes the ranking. For either project, predeclare an observation that would increase or decrease confidence. An insight can remain scientifically interesting while failing a proposed application; a working intervention can remain useful while leaving the mechanism incompletely understood.",
+      "question": "Which disagreement matters most here: timelines, the speed of scientific progress, or how much understanding practical control requires?",
+      "evidence": [
+        {
+          "sourceId": "pragmatic",
+          "anchor": "Which_Beliefs_Are_Load_Bearing_",
+          "section": "Which Beliefs Are Load-Bearing?",
+          "why": "States assumptions behind the strategy."
+        },
+        {
+          "sourceId": "pragmatic",
+          "anchor": "Exploratory_Projects",
+          "section": "Exploratory Projects",
+          "why": "Shows the place of curiosity-driven research."
+        }
+      ],
+      "checkpoint": true
+    },
+    {
+      "id": "mcgrath-checkpoint-5937",
+      "start": 5937,
+      "end": 6014,
+      "title": "Deprioritizing a tool is not declaring it useless",
+      "explanation": "Both the interview and the essay reject the simplified claim that sparse autoencoders have no value. The essay argues that downstream tasks revealed limits invisible in reconstruction metrics, while retaining a role for discovering unexpected structure. Original teaching example: two microscopes can produce equally sharp pictures, but one may fail to reveal the organism you need to identify. Picture quality and task usefulness are related measurements, not interchangeable ones. A featurizer should be evaluated against the question it is meant to answer, alongside simpler alternatives.",
+      "technical": "Original evaluation design: define a held-out task, choose a baseline, and score three separate quantities—reconstruction, prediction, and intervention success. A model with lower reconstruction loss can still have worse task accuracy if its improvements concern irrelevant variance. Conversely, a coarse representation can answer a narrow question well. For geometry, also test whether the recovered structure makes successful predictions under changed contexts. The appropriate conclusion is about a method, task, model, and evidence scope; it is not a universal ranking of all representation learners.",
+      "question": "What result would justify investing in a new featurizer even if its reconstruction error were worse than an SAE's?",
+      "evidence": [
+        {
+          "sourceId": "pragmatic",
+          "anchor": "Case_Study__Sparse_Autoencoders",
+          "section": "Case Study: Sparse Autoencoders",
+          "why": "The authors' actual rationale for deprioritization."
+        },
+        {
+          "sourceId": "pragmatic",
+          "anchor": "Ensure_They_Are_Good_Proxies",
+          "section": "Ensure They Are Good Proxies",
+          "why": "Explains why the evaluation target itself needs testing."
+        }
+      ],
+      "checkpoint": true
+    }
+  ]
+}

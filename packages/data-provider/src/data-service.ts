@@ -13,6 +13,39 @@ import * as s from './schemas';
 import * as r from './roles';
 import * as permissions from './accessPermissions';
 
+export const getLectureSource = (source: q.LectureSource): Promise<q.LectureSourceResponse> =>
+  request.post(endpoints.lectureSource(), { source });
+
+export const askLecture = (
+  payload: q.LectureAskRequest,
+  signal?: AbortSignal,
+): Promise<q.LectureAskResponse> =>
+  request.postWithOptions(endpoints.lectureAsk(), payload, { signal });
+
+export const indexLecture = (payload: q.LectureIndexRequest): Promise<q.Lecture> =>
+  request.post(endpoints.lectureIndex(), payload);
+
+export const importLecture = (payload: q.Lecture): Promise<q.Lecture> =>
+  request.post(endpoints.lectureImport(), payload);
+
+export const getLectureVoiceStatus = (): Promise<q.LectureVoiceStatus> =>
+  request.get(endpoints.lectureVoice());
+export const getLectureYouTube = (
+  payload: q.LectureYouTubeRequest,
+): Promise<q.LectureYouTubeResponse> => request.post(endpoints.lectureYouTube(), payload);
+export const startLectureVoice = (
+  payload: q.LectureVoiceRequest,
+  signal?: AbortSignal,
+): Promise<q.LectureVoiceSession> =>
+  request.postWithOptions(endpoints.lectureVoice(), payload, { signal });
+export const stopLectureVoice = (sessionId: string): Promise<{ stopped: true }> =>
+  request.post(endpoints.lectureVoiceStop(), { sessionId });
+export const extractLectureNotes = (
+  payload: q.LectureNotesRequest,
+  signal?: AbortSignal,
+): Promise<q.LectureNotesResponse> =>
+  request.postWithOptions(endpoints.lectureNotes(), payload, { signal });
+
 export function revokeUserKey(name: string): Promise<unknown> {
   return request.delete(endpoints.revokeUserKey(name));
 }

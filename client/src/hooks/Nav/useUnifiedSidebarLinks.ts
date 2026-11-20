@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
-import { BookOpenText, FileText, MessageSquare } from 'lucide-react';
+import { BookOpenText, FileText, MessageSquare, GraduationCap } from 'lucide-react';
 import { useUserKeyQuery } from 'librechat-data-provider/react-query';
 import { getConfigDefaults, getEndpointField } from 'librechat-data-provider';
 import type { TEndpointsConfig } from 'librechat-data-provider';
@@ -15,6 +16,7 @@ import store from '~/store';
 const defaultInterface = getConfigDefaults().interface;
 
 export default function useUnifiedSidebarLinks() {
+  const navigate = useNavigate();
   const conversation = useRecoilValue(store.conversationByIndex(0));
   const endpoint = conversation?.endpoint;
   const { data: startupConfig } = useGetStartupConfig();
@@ -76,8 +78,15 @@ export default function useUnifiedSidebarLinks() {
       Component: DialogsSection,
     };
 
-    return [conversationLink, dialogsLink, documentsLink, ...sideNavLinks];
-  }, [sideNavLinks]);
+    const lectureLink: NavLink = {
+      title: 'com_ui_lecture_center',
+      label: '',
+      icon: GraduationCap,
+      id: 'lectures',
+      onClick: () => navigate('/lectures'),
+    };
+    return [conversationLink, lectureLink, dialogsLink, documentsLink, ...sideNavLinks];
+  }, [sideNavLinks, navigate]);
 
   return links;
 }

@@ -1,4 +1,6 @@
 export enum QueryKeys {
+  lectureVoice = 'lectureVoice',
+  lectureSource = 'lectureSource',
   messages = 'messages',
   sharedMessages = 'sharedMessages',
   sharedLinks = 'sharedLinks',
@@ -89,6 +91,13 @@ export const DynamicQueryKeys = {
 } as const;
 
 export enum MutationKeys {
+  lectureVoiceStart = 'lectureVoiceStart',
+  lectureVoiceStop = 'lectureVoiceStop',
+  lectureNotes = 'lectureNotes',
+  lectureYouTube = 'lectureYouTube',
+  lectureAsk = 'lectureAsk',
+  lectureIndex = 'lectureIndex',
+  lectureImport = 'lectureImport',
   createAgentApiKey = 'createAgentApiKey',
   deleteAgentApiKey = 'deleteAgentApiKey',
   fileUpload = 'fileUpload',

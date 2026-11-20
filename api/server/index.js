@@ -166,6 +166,7 @@ const startServer = async () => {
   app.use('/api/search', routes.search);
   app.use('/api/messages', routes.messages);
   app.use('/api/learners', routes.learners);
+  app.use('/api/lectures', routes.lectures);
   app.use('/api/convos', routes.convos);
   app.use('/api/projects', routes.projects);
   app.use('/api/conversations', routes.conversations);
