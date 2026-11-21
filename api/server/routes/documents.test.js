@@ -15,6 +15,7 @@ const mockGetDocumentVisualizationRenderPayload = jest.fn();
 const mockGetDocumentSpeechManifest = jest.fn();
 const mockGetDocumentSpeechAudioArtifact = jest.fn();
 const mockGetDocumentSpeechAudioPayload = jest.fn();
+const mockRefreshStoredTextFileFromOriginal = jest.fn();
 
 jest.mock('@librechat/api', () => ({
   listStudyDocuments: (...args) => mockListStudyDocuments(...args),
@@ -48,6 +49,10 @@ jest.mock('~/server/middleware', () => ({
     req.config = {};
     next();
   },
+}));
+
+jest.mock('~/server/services/Files/process', () => ({
+  refreshStoredTextFileFromOriginal: (...args) => mockRefreshStoredTextFileFromOriginal(...args),
 }));
 
 jest.mock('~/models', () => ({
@@ -89,6 +94,8 @@ jest.mock('~/models', () => ({
 }));
 
 const documentsRoute = require('./documents');
+const db = require('~/models');
+const { reingestStudyDocument } = require('@librechat/api');
 
 describe('documents route', () => {
   let app;
@@ -247,5 +254,43 @@ describe('documents route', () => {
     expect(mockGetDocumentSpeechAudioPayload).toHaveBeenCalled();
 
     await fs.unlink(tempFilePath);
+  });
+
+  it('refreshes a preserved original source file before document reingest', async () => {
+    db.getOwnedStudyDocument.mockResolvedValue({
+      documentId: 'document-1',
+      sourceFileId: 'file-1',
+    });
+    db.findFileById.mockResolvedValue({
+      file_id: 'file-1',
+      metadata: {
+        originalUpload: {
+          source: 'local',
+          filepath: '/uploads/user-1/document.pdf',
+          type: 'application/pdf',
+          bytes: 1024,
+          filename: 'document.pdf',
+        },
+      },
+    });
+    mockRefreshStoredTextFileFromOriginal.mockResolvedValue({});
+    reingestStudyDocument.mockResolvedValue({
+      document: { documentId: 'document-1' },
+      renderVersion: { renderVersionId: 'render-1' },
+      overlay: null,
+      clarifications: [],
+      visualizations: [],
+    });
+
+    const response = await request(app).post('/api/documents/document-1/reingest').send({});
+
+    expect(response.status).toBe(200);
+    expect(db.getOwnedStudyDocument).toHaveBeenCalledWith('user-1', 'document-1');
+    expect(db.findFileById).toHaveBeenCalledWith('file-1');
+    expect(mockRefreshStoredTextFileFromOriginal).toHaveBeenCalledWith({
+      req: expect.any(Object),
+      file: expect.objectContaining({ file_id: 'file-1' }),
+    });
+    expect(reingestStudyDocument).toHaveBeenCalled();
   });
 });

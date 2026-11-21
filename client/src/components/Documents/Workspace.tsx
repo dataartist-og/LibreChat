@@ -7,7 +7,7 @@ import { useRecoilValue } from 'recoil';
 import supersub from 'remark-supersub';
 import type { TDocumentSpeechHighlightMode, TDocumentWorkspace } from 'librechat-data-provider';
 import type { PluggableList } from 'unified';
-import { BookOpenText, Download, Globe2, Lock, RotateCcw } from 'lucide-react';
+import { AlertTriangle, BookOpenText, Download, Globe2, Lock, RotateCcw } from 'lucide-react';
 import {
   OGDialog,
   OGDialogContent,
@@ -74,7 +74,9 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
   const importMutation = useImportStudyDocumentMutation();
   const updateSharingMutation = useUpdateStudyDocumentSharingMutation();
   const createStarterDialogMutation = useCreateStarterDialogMutation();
-  const highlightMode = useRecoilValue<TDocumentSpeechHighlightMode>(store.documentSpeechHighlightMode);
+  const highlightMode = useRecoilValue<TDocumentSpeechHighlightMode>(
+    store.documentSpeechHighlightMode,
+  );
   const [repoUrl, setRepoUrl] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeSpeech, setActiveSpeech] = useState<DocumentSpeechActiveState | null>(null);
@@ -89,6 +91,9 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
   const isImported = workspace.document.isImported === true;
   const viewerCanEdit = isOwner || isImported;
   const isSharedPreview = !viewerCanEdit;
+  const showsParserFallbackWarning =
+    workspace.document.sourceKind === 'pdf' &&
+    workspace.document.ingestionStrategy === 'document_parser';
 
   const handleCreateStarterDialog = async () => {
     try {
@@ -137,9 +142,7 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
                     ? localize('com_ui_document_public')
                     : localize('com_ui_document_private')}
                 </span>
-                {isSharedPreview ? (
-                  <span>{localize('com_ui_document_shared_preview')}</span>
-                ) : null}
+                {isSharedPreview ? <span>{localize('com_ui_document_shared_preview')}</span> : null}
                 {isImported ? <span>{localize('com_ui_document_imported')}</span> : null}
               </div>
             </div>
@@ -208,6 +211,19 @@ export default function DocumentWorkspace({ workspace }: { workspace: TDocumentW
               ) : null}
             </div>
           </div>
+          {showsParserFallbackWarning ? (
+            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
+              <div className="space-y-1">
+                <p className="font-medium text-amber-200">
+                  {localize('com_ui_document_parser_warning_title')}
+                </p>
+                <p className="text-amber-100/90">
+                  {localize('com_ui_document_parser_warning_body')}
+                </p>
+              </div>
+            </div>
+          ) : null}
         </header>
 
         <div className="flex min-h-0 flex-1 overflow-hidden">

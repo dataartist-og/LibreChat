@@ -1337,6 +1337,8 @@
   "com_ui_document_source": "Source",
   "com_ui_document_render_version": "Render version",
   "com_ui_document_outline": "Outline",
+  "com_ui_document_parser_warning_title": "This PDF was parsed without OCR.",
+  "com_ui_document_parser_warning_body": "The stored source for this document is plain parser text, so equations, symbols, and figure layout may already be flattened before rendering. Re-upload the original PDF while OCR is enabled if you need faithful math and figure rendering.",
   "com_ui_explore_documents": "Explore",
   "com_ui_my_documents": "My documents",
   "com_ui_no_shared_documents": "No shared documents found.",

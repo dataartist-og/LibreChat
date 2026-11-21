@@ -40,6 +40,7 @@ jest.mock('~/server/services/Tools/credentials', () => ({
 
 jest.mock('~/models', () => ({
   createFile: jest.fn().mockResolvedValue({ file_id: 'created-file-id' }),
+  updateFile: jest.fn().mockResolvedValue({ file_id: 'updated-file-id' }),
   updateFileUsage: jest.fn(),
   deleteFiles: jest.fn(),
   addAgentResourceFile: jest.fn().mockResolvedValue({}),
@@ -74,7 +75,8 @@ const { EToolResources, FileSources, AgentCapabilities } = require('librechat-da
 const { mergeFileConfig } = require('librechat-data-provider');
 const { checkCapability } = require('~/server/services/Config');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
-const { processAgentFileUpload } = require('./process');
+const { Readable } = require('stream');
+const { processAgentFileUpload, refreshStoredTextFileFromOriginal } = require('./process');
 
 const PDF_MIME = 'application/pdf';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -286,6 +288,45 @@ describe('processAgentFileUpload', () => {
       expect(getStrategyFunctions).toHaveBeenCalledWith(FileSources.document_parser);
     });
 
+    test('preserves the original document upload metadata alongside extracted text', async () => {
+      const extractedDocument = {
+        text: 'parsed text',
+        bytes: 11,
+        filepath: 'document_parser',
+      };
+      const storedOriginal = {
+        filepath: '/uploads/user-123/file-uuid-123-source__upload.bin',
+        bytes: 2048,
+      };
+      getStrategyFunctions
+        .mockReturnValueOnce({
+          handleFileUpload: jest.fn().mockResolvedValue(extractedDocument),
+        })
+        .mockReturnValueOnce({
+          handleFileUpload: jest.fn().mockResolvedValue(storedOriginal),
+        });
+      const req = makeReq({ mimetype: PDF_MIME, ocrConfig: null });
+      const { createFile } = require('~/models');
+
+      await processAgentFileUpload({ req, res: mockRes, metadata: makeMetadata() });
+
+      expect(createFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            originalUpload: {
+              bytes: 2048,
+              fileId: null,
+              filename: 'upload.bin',
+              filepath: '/uploads/user-123/file-uuid-123-source__upload.bin',
+              source: 'local',
+              type: PDF_MIME,
+            },
+          },
+        }),
+        true,
+      );
+    });
+
     test('throws when both configured OCR and document_parser fallback fail', async () => {
       mergeFileConfig.mockReturnValue(makeFileConfig({ ocrSupportedMimeTypes: [PDF_MIME] }));
       getStrategyFunctions.mockReturnValue({
@@ -339,6 +380,73 @@ describe('processAgentFileUpload', () => {
       await expect(
         processAgentFileUpload({ req, res: mockRes, metadata: makeMetadata() }),
       ).resolves.not.toThrow();
+    });
+  });
+});
+
+describe('refreshStoredTextFileFromOriginal', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mergeFileConfig.mockReturnValue(makeFileConfig({ ocrSupportedMimeTypes: [PDF_MIME] }));
+    checkCapability.mockResolvedValue(true);
+  });
+
+  test('re-extracts text from a preserved original upload and updates the source file', async () => {
+    const req = makeReq({
+      mimetype: PDF_MIME,
+      ocrConfig: { strategy: FileSources.mistral_ocr },
+    });
+    const file = {
+      file_id: 'text-file-1',
+      metadata: {
+        originalUpload: {
+          bytes: 4096,
+          fileId: null,
+          filename: 'document.pdf',
+          filepath: '/uploads/user-123/document.pdf',
+          source: 'local',
+          type: PDF_MIME,
+        },
+      },
+    };
+    const extractedDocument = {
+      text: '# PAGE 1\n\nLet $f(x)$ be continuous.',
+      bytes: 64,
+      filepath: 'mistral_ocr',
+      pages: [{ index: 0, dimensions: { dpi: 300, height: 1000, width: 800 }, images: [] }],
+    };
+    getStrategyFunctions
+      .mockReturnValueOnce({
+        getDownloadStream: jest.fn().mockResolvedValue(Readable.from(['pdf-bytes'])),
+      })
+      .mockReturnValueOnce({
+        handleFileUpload: jest.fn().mockResolvedValue(extractedDocument),
+      });
+    const { updateFile } = require('~/models');
+
+    await refreshStoredTextFileFromOriginal({ req, file });
+
+    expect(updateFile).toHaveBeenCalledWith({
+      file_id: 'text-file-1',
+      bytes: 64,
+      filename: 'document.pdf',
+      filepath: 'mistral_ocr',
+      metadata: {
+        originalUpload: {
+          bytes: 4096,
+          fileId: null,
+          filename: 'document.pdf',
+          filepath: '/uploads/user-123/document.pdf',
+          source: 'local',
+          type: PDF_MIME,
+        },
+        ocr: {
+          provider: 'mistral_ocr',
+          pages: [{ index: 0, dimensions: { dpi: 300, height: 1000, width: 800 }, images: [] }],
+        },
+      },
+      text: '# PAGE 1\n\nLet $f(x)$ be continuous.',
+      type: 'text/plain',
     });
   });
 });

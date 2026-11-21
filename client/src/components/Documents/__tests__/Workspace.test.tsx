@@ -42,12 +42,14 @@ jest.mock('~/data-provider/Documents', () => ({
 
 jest.mock('../Viewer', () => ({
   __esModule: true,
-  default: () => <div>viewer</div>,
+  default: () => <div data-testid="viewer" />,
 }));
 
 jest.mock('../Speech', () => ({
   __esModule: true,
-  default: require('react').forwardRef(() => <div>speech-player</div>),
+  default: jest
+    .requireActual<typeof import('react')>('react')
+    .forwardRef(() => <div data-testid="speech-player" />),
 }));
 
 const workspace: TDocumentWorkspace = {
@@ -137,5 +139,26 @@ describe('DocumentWorkspace', () => {
     expect(outlineButton).toHaveTextContent('1.6. The Complex Projective Line');
     expect(outlineButton.querySelector('.katex')).toBeInTheDocument();
     expect(container.querySelector('.katex')).toBeInTheDocument();
+  });
+
+  it('shows a parser fallback warning for pdf documents that were ingested without OCR', () => {
+    const parserWorkspace: TDocumentWorkspace = {
+      ...workspace,
+      document: {
+        ...workspace.document,
+        ingestionStrategy: 'document_parser',
+      },
+    };
+
+    const { getByText } = render(
+      <RecoilRoot initializeState={({ set }) => set(store.LaTeXParsing, true)}>
+        <MemoryRouter>
+          <DocumentWorkspace workspace={parserWorkspace} />
+        </MemoryRouter>
+      </RecoilRoot>,
+    );
+
+    expect(getByText('com_ui_document_parser_warning_title')).toBeInTheDocument();
+    expect(getByText('com_ui_document_parser_warning_body')).toBeInTheDocument();
   });
 });

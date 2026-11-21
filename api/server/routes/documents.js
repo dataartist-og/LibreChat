@@ -22,6 +22,7 @@ const {
 } = require('@librechat/api');
 const { configMiddleware } = require('~/server/middleware');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
+const { refreshStoredTextFileFromOriginal } = require('~/server/services/Files/process');
 const db = require('~/models');
 
 const router = express.Router();
@@ -228,6 +229,17 @@ router.delete('/visualizations/:visualizationId', async (req, res) => {
 
 router.post('/:documentId/reingest', async (req, res) => {
   try {
+    const document = await db.getOwnedStudyDocument(req.user.id, req.params.documentId);
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    const sourceFile = await db.findFileById(document.sourceFileId);
+    if (!sourceFile) {
+      throw new Error('Source file not found');
+    }
+
+    await refreshStoredTextFileFromOriginal({ req, file: sourceFile });
     const workspace = await reingestStudyDocument(deps, req.user.id, req.params.documentId);
     res.status(200).json(workspace);
   } catch (error) {

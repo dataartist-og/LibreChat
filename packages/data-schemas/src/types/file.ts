@@ -28,9 +28,19 @@ export interface IOCRFileMetadata {
   pages: IOCRPageMetadata[];
 }
 
+export interface IOriginalUploadMetadata {
+  bytes: number;
+  fileId?: string | null;
+  filename: string;
+  filepath: string;
+  source: string;
+  type: string;
+}
+
 export interface IFileMetadata {
   fileIdentifier?: string;
   ocr?: IOCRFileMetadata;
+  originalUpload?: IOriginalUploadMetadata;
   [key: string]: unknown;
 }
 

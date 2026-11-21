@@ -1,7 +1,9 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const mime = require('mime');
 const { v4 } = require('uuid');
+const { pipeline } = require('stream/promises');
 const {
   isUUID,
   megabyte,
@@ -65,6 +67,8 @@ const openAIFileClientDeps = {
   getUserKeyValues: db.getUserKeyValues,
 };
 
+const ORIGINAL_UPLOAD_METADATA_KEY = 'originalUpload';
+
 async function syncProjectSource({ req, result, metadata }) {
   if (!metadata?.projectId || !result?.file_id || !result?.filename) {
     return;
@@ -100,6 +104,173 @@ const createSanitizedUploadWrapper = (uploadFunction) => {
     return uploadFunction({ req, file: sanitizedFile, file_id, ...restParams });
   };
 };
+
+function getOriginalUploadMetadata(file) {
+  const originalUpload = file?.metadata?.[ORIGINAL_UPLOAD_METADATA_KEY];
+  if (!originalUpload || typeof originalUpload !== 'object') {
+    return null;
+  }
+
+  const { bytes, fileId = null, filename, filepath, source, type } = originalUpload;
+
+  if (
+    typeof bytes !== 'number' ||
+    typeof filename !== 'string' ||
+    typeof filepath !== 'string' ||
+    typeof source !== 'string' ||
+    typeof type !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    bytes,
+    fileId: typeof fileId === 'string' ? fileId : null,
+    filename,
+    filepath,
+    source,
+    type,
+  };
+}
+
+async function preserveOriginalContextUpload({ req, file, file_id, basePath, entity_id }) {
+  const source = getFileStrategy(req.config, { isImage: false });
+  const { handleFileUpload } = getStrategyFunctions(source);
+
+  if (!handleFileUpload) {
+    throw new Error(`Original document preservation is not supported for file source "${source}"`);
+  }
+
+  const sanitizedUploadFn = createSanitizedUploadWrapper(handleFileUpload);
+  const storageResult = await sanitizedUploadFn({
+    req,
+    file,
+    file_id: `${file_id}-source`,
+    basePath,
+    entity_id,
+  });
+
+  return {
+    bytes: storageResult.bytes,
+    fileId: typeof storageResult.id === 'string' ? storageResult.id : null,
+    filename: sanitizeFilename(file.originalname),
+    filepath: storageResult.filepath,
+    source,
+    type: file.mimetype,
+  };
+}
+
+async function extractContextDocumentFile({ req, file, fileConfig }) {
+  const shouldUseConfiguredOCR =
+    req.config?.ocr != null &&
+    fileConfig.checkType(file.mimetype, fileConfig.ocr?.supportedMimeTypes || []);
+
+  const shouldUseDocumentParser =
+    !shouldUseConfiguredOCR && documentParserMimeTypes.some((regex) => regex.test(file.mimetype));
+
+  const shouldUseDocumentExtraction = shouldUseConfiguredOCR || shouldUseDocumentParser;
+  if (!shouldUseDocumentExtraction) {
+    return null;
+  }
+
+  if (shouldUseConfiguredOCR && !(await checkCapability(req, AgentCapabilities.ocr))) {
+    throw new Error('OCR capability is not enabled for Agents');
+  }
+
+  if (shouldUseConfiguredOCR) {
+    try {
+      const ocrStrategy = req.config?.ocr?.strategy ?? FileSources.document_parser;
+      const { handleFileUpload } = getStrategyFunctions(ocrStrategy);
+      return await handleFileUpload({ req, file, loadAuthValues });
+    } catch (err) {
+      logger.error(
+        `[extractContextDocumentFile] Configured OCR failed for "${file.originalname}", falling back to document_parser:`,
+        err,
+      );
+    }
+  }
+
+  try {
+    const { handleFileUpload } = getStrategyFunctions(FileSources.document_parser);
+    return await handleFileUpload({ req, file, loadAuthValues });
+  } catch (err) {
+    logger.error(
+      `[extractContextDocumentFile] Document parser failed for "${file.originalname}":`,
+      err,
+    );
+  }
+
+  throw new Error(
+    `Unable to extract text from "${file.originalname}". The document may be image-based and requires an OCR service to process.`,
+  );
+}
+
+async function refreshStoredTextFileFromOriginal({ req, file }) {
+  const originalUpload = getOriginalUploadMetadata(file);
+  if (!originalUpload) {
+    return file;
+  }
+
+  const { getDownloadStream } = getStrategyFunctions(originalUpload.source);
+  if (!getDownloadStream) {
+    throw new Error(
+      `Original document refresh is not supported for file source "${originalUpload.source}"`,
+    );
+  }
+
+  const tempDirectory = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), 'librechat-document-refresh-'),
+  );
+  const tempFilename = `${v4()}-${sanitizeFilename(originalUpload.filename)}`;
+  const tempPath = path.join(tempDirectory, tempFilename);
+
+  try {
+    const downloadStream = await getDownloadStream(req, originalUpload.filepath);
+    await pipeline(downloadStream, fs.createWriteStream(tempPath));
+
+    const fileConfig = mergeFileConfig(req.config.fileConfig);
+    const extractedDocument = await extractContextDocumentFile({
+      req,
+      file: {
+        path: tempPath,
+        originalname: originalUpload.filename,
+        mimetype: originalUpload.type,
+        size: originalUpload.bytes,
+      },
+      fileConfig,
+    });
+
+    if (!extractedDocument) {
+      return file;
+    }
+
+    const nextMetadata = {
+      ...(file.metadata ?? {}),
+      [ORIGINAL_UPLOAD_METADATA_KEY]: originalUpload,
+    };
+
+    if (extractedDocument.pages?.length) {
+      nextMetadata.ocr = {
+        provider: extractedDocument.filepath,
+        pages: extractedDocument.pages,
+      };
+    } else {
+      delete nextMetadata.ocr;
+    }
+
+    return await db.updateFile({
+      file_id: file.file_id,
+      bytes: extractedDocument.bytes,
+      filename: originalUpload.filename,
+      filepath: extractedDocument.filepath,
+      metadata: nextMetadata,
+      text: extractedDocument.text,
+      type: 'text/plain',
+    });
+  } finally {
+    await fs.promises.rm(tempDirectory, { recursive: true, force: true });
+  }
+}
 
 /**
  * Enqueues the delete operation to the leaky bucket queue if necessary, or adds it directly to promises.
@@ -228,6 +399,26 @@ const processDeleteRequest = async ({ req, files }) => {
     }
 
     if (source === FileSources.text) {
+      const originalUpload = getOriginalUploadMetadata(file);
+      if (originalUpload) {
+        const { deleteFile } = getStrategyFunctions(originalUpload.source);
+
+        if (deleteFile) {
+          enqueueDeleteOperation({
+            req,
+            file: {
+              ...file,
+              filepath: originalUpload.filepath,
+              source: originalUpload.source,
+            },
+            deleteFile,
+            promises,
+            resolvedFileIds,
+          });
+          continue;
+        }
+      }
+
       resolvedFileIds.push(file.file_id);
       continue;
     }
@@ -454,11 +645,8 @@ const processFileUpload = async ({ req, res, metadata }) => {
   const assistantSource =
     metadata.endpoint === EModelEndpoint.azureAssistants ? FileSources.azure : FileSources.openai;
   // Use the configured file strategy for regular file uploads (not vectordb)
-  const source = isAssistantUpload
-    ? assistantSource
-    : isNativeOpenAIUpload
-      ? FileSources.openai
-      : appConfig.fileStrategy;
+  const regularSource = isNativeOpenAIUpload ? FileSources.openai : appConfig.fileStrategy;
+  const source = isAssistantUpload ? assistantSource : regularSource;
   const { handleFileUpload } = getStrategyFunctions(source);
   const { file_id, temp_file_id = null } = metadata;
 
@@ -644,62 +832,35 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     };
 
     const fileConfig = mergeFileConfig(appConfig.fileConfig);
+    const extractedDocument = await extractContextDocumentFile({ req, file, fileConfig });
 
-    const shouldUseConfiguredOCR =
-      appConfig?.ocr != null &&
-      fileConfig.checkType(file.mimetype, fileConfig.ocr?.supportedMimeTypes || []);
+    if (extractedDocument) {
+      fileInfoMetadata = {
+        ...fileInfoMetadata,
+        [ORIGINAL_UPLOAD_METADATA_KEY]: await preserveOriginalContextUpload({
+          req,
+          file,
+          file_id,
+          basePath,
+          entity_id,
+        }),
+      };
 
-    const shouldUseDocumentParser =
-      !shouldUseConfiguredOCR && documentParserMimeTypes.some((regex) => regex.test(file.mimetype));
-
-    const shouldUseOCR = shouldUseConfiguredOCR || shouldUseDocumentParser;
-
-    const resolveDocumentText = async () => {
-      if (shouldUseConfiguredOCR) {
-        try {
-          const ocrStrategy = appConfig?.ocr?.strategy ?? FileSources.document_parser;
-          const { handleFileUpload } = getStrategyFunctions(ocrStrategy);
-          return await handleFileUpload({ req, file, loadAuthValues });
-        } catch (err) {
-          logger.error(
-            `[processAgentFileUpload] Configured OCR failed for "${file.originalname}", falling back to document_parser:`,
-            err,
-          );
-        }
+      if (extractedDocument.pages?.length) {
+        fileInfoMetadata = {
+          ...fileInfoMetadata,
+          ocr: {
+            provider: extractedDocument.filepath,
+            pages: extractedDocument.pages,
+          },
+        };
       }
-      try {
-        const { handleFileUpload } = getStrategyFunctions(FileSources.document_parser);
-        return await handleFileUpload({ req, file, loadAuthValues });
-      } catch (err) {
-        logger.error(
-          `[processAgentFileUpload] Document parser failed for "${file.originalname}":`,
-          err,
-        );
-      }
-    };
 
-    if (shouldUseConfiguredOCR && !(await checkCapability(req, AgentCapabilities.ocr))) {
-      throw new Error('OCR capability is not enabled for Agents');
-    }
-
-    if (shouldUseOCR) {
-      const ocrResult = await resolveDocumentText();
-      if (ocrResult) {
-        const { text, bytes, filepath: ocrFileURL, pages } = ocrResult;
-        if (pages?.length) {
-          fileInfoMetadata = {
-            ...fileInfoMetadata,
-            ocr: {
-              provider: ocrFileURL,
-              pages,
-            },
-          };
-        }
-        return await createTextFile({ text, bytes, filepath: ocrFileURL });
-      }
-      throw new Error(
-        `Unable to extract text from "${file.originalname}". The document may be image-based and requires an OCR service to process.`,
-      );
+      return await createTextFile({
+        text: extractedDocument.text,
+        bytes: extractedDocument.bytes,
+        filepath: extractedDocument.filepath,
+      });
     }
 
     const shouldUseSTT = fileConfig.checkType(
@@ -1143,6 +1304,7 @@ function filterFile({ req, image, isAvatar }) {
 }
 
 module.exports = {
+  refreshStoredTextFileFromOriginal,
   filterFile,
   processFileURL,
   saveBase64Image,
